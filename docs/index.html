@@ -180,7 +180,6 @@ html.dark .stat .sic{filter:brightness(.8)}
 </head>
 <body>
 <div id="app">
-  <div class="demo-tag">デモ</div>
 
   <!-- ホーム -->
   <section class="screen" id="home"></section>
@@ -199,7 +198,7 @@ html.dark .stat .sic{filter:brightness(.8)}
       <div class="v-memo" id="v-memo"></div>
     </div>
     <div class="v-bot">
-      <button onclick="toast('共有シートが開きます（デモ）')" aria-label="共有"><span class="ms">ios_share</span></button>
+      <button onclick="sharePhotos([curPhoto()])" aria-label="共有"><span class="ms">ios_share</span></button>
       <button onclick="openMemo()" aria-label="メモ"><span class="ms" id="v-memo-ic">chat_bubble</span></button>
       <button onclick="openMove('viewer')" aria-label="移動"><span class="ms">folder</span></button>
       <button onclick="viewerMenu()" aria-label="削除など"><span class="ms">delete</span></button>
@@ -379,7 +378,7 @@ function shrink(file){return new Promise((res,rej)=>{const url=URL.createObjectU
 function systemDeleteConfirm(ids){
   const n=ids.length;
   setTimeout(()=>showAction(`「フォトポケット」が${n}枚の写真を削除することを許可しますか？`,"この写真は「最近削除した項目」に移動され、30日後に完全に削除されます。（iPhoneが表示する確認画面です）",[
-    {label:"削除",danger:true,bold:true,fn:()=>{ids.forEach(i=>{const p=S.photos.find(x=>x.id===i);if(p)p.inLib=false});rerender();toast(`写真アプリから${n}枚削除しました（デモ：実際には消えません）`)}},
+    {label:"削除",danger:true,bold:true,fn:()=>{ids.forEach(i=>{const p=S.photos.find(x=>x.id===i);if(p)p.inLib=false});rerender();toast(`Web版では写真アプリの写真は消えません。写真アプリで削除してください`)}},
     {label:"許可しない",fn:()=>toast("写真アプリの写真はそのまま残っています")}],true),260);
 }
 function askCleanup(){const ids=folderPhotos(S.cur).filter(p=>p.inLib).map(p=>p.id);
@@ -396,7 +395,7 @@ function renderViewer(){const ps=folderPhotos(S.cur);const p=ps[S.vIndex];if(!p)
   document.querySelectorAll(".v-arrow").forEach(b=>b.style.display=ps.length>1?"flex":"none")}
 (()=>{let x0=null;const el=$("#v-img");el.addEventListener("touchstart",e=>x0=e.touches[0].clientX,{passive:true});el.addEventListener("touchend",e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>50)stepViewer(dx<0?1:-1);x0=null});
   let zoom=false;el.addEventListener("dblclick",()=>{zoom=!zoom;$("#v-pic").style.transform=zoom?"scale(2.2)":"none"})})();
-function viewerMenu(){const p=curPhoto();const items=[{label:"写真アプリに書き出す",fn:()=>toast("写真アプリに書き出しました（デモ）")}];
+function viewerMenu(){const p=curPhoto();const items=[{label:"写真アプリに保存",fn:()=>sharePhotos([p])}];
   if(p.inLib)items.push({label:"写真アプリから削除（アプリには残す）",danger:true,fn:()=>systemDeleteConfirm([p.id])});
   items.push({label:"このアプリから削除",danger:true,fn:()=>confirmAppDelete([p.id])});
   showAction("この写真",p.inLib?"写真アプリにも残っています。":"写真アプリからは削除済みです。",items)}
@@ -409,7 +408,7 @@ function confirmAppDelete(ids){const gone=ids.filter(i=>!S.photos.find(p=>p.id==
   showAction(`${ids.length}枚をこのアプリから削除しますか？`,gone?`そのうち${gone}枚は写真アプリから削除済みです。アプリから消すと元に戻せません。`:"写真アプリには元の写真が残っています。",[{label:"アプリから削除",danger:true,fn:()=>{S.photos=S.photos.filter(p=>!ids.includes(p.id));S.selected.clear();S.selecting=false;if($("#viewer").classList.contains("show")){const n=folderPhotos(S.cur).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}renderFolder();toast("削除しました")}}])}
 function selectDeleteMenu(anyLib){const ids=[...S.selected];const items=[];
   if(anyLib)items.push({label:"写真アプリから削除（アプリには残す）",danger:true,fn:()=>{systemDeleteConfirm(ids.filter(i=>S.photos.find(p=>p.id===i)?.inLib));endSelect()}});
-  items.push({label:"写真アプリに書き出す",fn:()=>{toast(`${ids.length}枚を写真アプリに書き出しました（デモ）`);endSelect()}});
+  items.push({label:"写真アプリに保存",fn:()=>{sharePhotos(ids.map(i=>S.photos.find(p=>p.id===i)).filter(Boolean));endSelect()}});
   items.push({label:"このアプリから削除",danger:true,fn:()=>confirmAppDelete(ids)});
   showAction(`${ids.length}枚を選択中`,"",items)}
 function openMove(from){
@@ -454,7 +453,7 @@ function folderPageMenu(ev){const ps=folderPhotos(S.cur);const inLib=ps.filter(p
   {label:"写真を選択",icon:"check_circle",fn:()=>{if(!ps.length){toast("写真がありません");return}S.selecting=true;renderFolder()}},
   {label:"フォルダを編集",icon:"edit",fn:()=>openFolderEditor(S.cur)},
   {label:"写真アプリに残っている分を削除…",icon:"mobile_off",danger:true,fn:()=>{if(!inLib){toast("写真アプリに残っている写真はありません");return}askCleanup()}},
-  {label:"すべて写真アプリに書き出す",icon:"download",fn:()=>toast(ps.length?`${ps.length}枚を写真アプリに書き出しました（デモ）`:"写真がありません")}])}
+  {label:"すべて写真アプリに保存",icon:"download",fn:()=>ps.length?sharePhotos(ps):toast("写真がありません")}])}
 
 /* ---------- 設定・課金 ---------- */
 function openSettings(){
@@ -466,7 +465,7 @@ function openSettings(){
   <div class="list-h">取り込み後の写真アプリの写真</div><div style="margin:0 16px"><div class="seg">${[["ask","毎回たずねる"],["keep","いつも残す"],["delete","いつも削除"]].map(([k,l])=>`<button class="${S.policy===k?"on":""}" onclick="S.policy='${k}';openSettings()">${l}</button>`).join("")}</div></div>
   <div class="note">削除するときは、必ずiPhoneの確認画面が出ます。削除した写真は「最近削除した項目」に30日間残ります。</div>
   <div class="list-h">保存状況</div><div class="list"><div class="li">写真の枚数<span class="sub" style="margin-left:auto">${total}枚</span></div><div class="li">写真アプリにも残っている<span class="sub" style="margin-left:auto">${lib}枚</span></div></div>
-  <div class="list"><button class="li" style="color:var(--danger)" onclick="resetDemo()"><span class="ms">restart_alt</span>デモを最初からやり直す</button></div>`)}
+  <div class="list"><button class="li" style="color:var(--danger)" onclick="confirmReset()"><span class="ms">delete_forever</span>すべてのデータを消す</button></div>`)}
 function openUnlock(){
   openSheet(`<div class="sheet-head"><button class="textbtn" onclick="closeSheet()">${S.unlocked?"閉じる":"あとで"}</button><span></span><span style="width:60px"></span></div>
   <div style="text-align:center;padding:0 24px"><div class="halo"><div><span class="ms">${S.unlocked?"cloud_done":"cloud"}</span></div></div><div style="font-size:22px;font-weight:800;margin-bottom:8px">${S.unlocked?"iCloud同期を使っています":"iCloudで写真をまもる"}</div><div class="sub" style="font-size:14px;line-height:1.7;margin-bottom:20px">${S.unlocked?"ご購入ありがとうございます。":"1回の購入で、ずっと使えます。<br>月額ではありません。"}</div></div>
@@ -490,7 +489,39 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{applyM
 function setMode(m){S.mode=m;try{localStorage.setItem("pp-mode",m)}catch(e){}applyMode();render();toast(m==="light"?"ライトモードにしました":m==="dark"?"ダークモードにしました":"端末の設定に合わせます")}
 function modeMenu(ev){showMenu(ev,[["light","ライトモード","light_mode"],["dark","ダークモード","dark_mode"],["system","端末に合わせる","contrast"]].map(([k,l,i])=>({label:(S.mode===k?"✓ ":"")+l,icon:i,fn:()=>setMode(k)})))}
 function render(){renderHome();renderTabbar();if(S.curCat&&!$("#cat").classList.contains("off"))renderCategory()}
-applyMode();render();
+/* ---------- iPhoneの中に保存（IndexedDB） ---------- */
+const DB={db:null,saved:new Set(),timer:null,ready:false};
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open("photopocket",1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore("kv");d.createObjectStore("photos")};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function tx(store,mode,fn){return new Promise((res,rej)=>{const t=DB.db.transaction(store,mode);const st=t.objectStore(store);const out=fn(st);t.oncomplete=()=>res(out&&out.result);t.onerror=()=>rej(t.error)})}
+async function loadState(){
+  try{DB.db=await idb();
+    const meta=await tx("kv","readonly",st=>st.get("state"));
+    if(meta){const srcs=await tx("photos","readonly",st=>st.getAll());const keys=await tx("photos","readonly",st=>st.getAllKeys());const map={};keys.forEach((k,i)=>map[k]=srcs[i]);
+      Object.assign(S,{cats:meta.cats||[],folders:meta.folders||[],policy:meta.policy||"ask",unlocked:!!meta.unlocked,hideBanner:!!meta.hideBanner});
+      S.photos=(meta.photos||[]).filter(p=>map[p.id]).map(p=>({...p,src:map[p.id]}));
+      keys.forEach(k=>DB.saved.add(k));uid=Math.max(uid,meta.uid||1)}
+    if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+  }catch(e){console.log("保存なし",e)}
+  DB.ready=true}
+function scheduleSave(){if(!DB.ready||!DB.db)return;clearTimeout(DB.timer);DB.timer=setTimeout(saveState,400)}
+async function saveState(){
+  try{const meta={cats:S.cats,folders:S.folders,policy:S.policy,unlocked:S.unlocked,hideBanner:S.hideBanner,uid,photos:S.photos.map(({src,...m})=>m)};
+    const ids=new Set(S.photos.map(p=>p.id));
+    const toAdd=S.photos.filter(p=>!DB.saved.has(p.id));const toDel=[...DB.saved].filter(k=>!ids.has(k));
+    await new Promise((res,rej)=>{const t=DB.db.transaction(["kv","photos"],"readwrite");t.objectStore("kv").put(meta,"state");const ps=t.objectStore("photos");toAdd.forEach(p=>ps.put(p.src,p.id));toDel.forEach(k=>ps.delete(k));t.oncomplete=res;t.onerror=()=>rej(t.error)});
+    toAdd.forEach(p=>DB.saved.add(p.id));toDel.forEach(k=>DB.saved.delete(k));
+  }catch(e){toast("保存できませんでした。iPhoneの空き容量を確認してください")}}
+["render","renderFolder","renderViewer"].forEach(n=>{const f=window[n];window[n]=function(){const r=f.apply(this,arguments);scheduleSave();return r}});
+function confirmReset(){showAction("すべてのデータを消しますか？","このアプリに保存した分類・フォルダ・写真がすべて消えます。写真アプリの写真は消えません。",[{label:"すべて消す",danger:true,fn:()=>{resetDemo();scheduleSave();toast("すべてのデータを消しました")}}])}
+/* 写真アプリに保存：共有シートの「画像を保存」から */
+async function sharePhotos(list){
+  if(!list.length)return;
+  try{const files=await Promise.all(list.map(async(p,i)=>{const b=await (await fetch(p.src)).blob();return new File([b],`photo_${i+1}.jpg`,{type:"image/jpeg"})}));
+    if(navigator.canShare&&navigator.canShare({files})){await navigator.share({files});return}
+    toast("このブラウザでは保存できません。写真を長押しして保存してください")
+  }catch(e){if(e&&e.name==="AbortError")return;toast("保存をキャンセルしました")}}
+applyMode();
+loadState().then(()=>{render()});
 </script>
 </body>
 </html>
