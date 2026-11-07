@@ -215,6 +215,7 @@ html.dark .stat .sic{filter:brightness(.8)}
 
   <div class="toast" id="toast"></div>
   <input type="file" id="picker" accept="image/*" multiple hidden>
+  <input type="file" id="restorePicker" accept=".json,application/json" hidden>
 </div>
 
 <script>
@@ -479,6 +480,10 @@ function openSettings(){
   <div class="list-h">画面のモード</div><div style="margin:0 16px"><div class="seg">${[["light","ライト"],["dark","ダーク"],["system","端末に合わせる"]].map(([k,l])=>`<button class="${S.mode===k?"on":""}" onclick="setMode('${k}');openSettings()">${l}</button>`).join("")}</div></div>
   <div class="list-h">取り込み後の写真アプリの写真</div><div style="margin:0 16px"><div class="seg">${[["ask","毎回たずねる"],["keep","いつも残す"],["delete","いつも削除"]].map(([k,l])=>`<button class="${S.policy===k?"on":""}" onclick="S.policy='${k}';openSettings()">${l}</button>`).join("")}</div></div>
   <div class="note">削除するときは、必ずiPhoneの確認画面が出ます。削除した写真は「最近削除した項目」に30日間残ります。</div>
+  <div class="list-h">バックアップ（機種変更のときに）</div><div class="list">
+  <button class="li" style="color:var(--accent)" onclick="makeBackup()"><span class="ms">cloud_upload</span>バックアップを作る</button>
+  <button class="li" style="color:var(--accent)" onclick="pickRestore()"><span class="ms">settings_backup_restore</span>バックアップから戻す</button></div>
+  <div class="note">分類・フォルダ・写真・メモを1つのファイルにまとめます。「ファイルに保存」でiCloud Driveなどに保存しておくと、新しいiPhoneでも「バックアップから戻す」で元どおりにできます。${S.lastBackup?`<br>前回のバックアップ：${new Date(S.lastBackup).toLocaleString("ja-JP")}`:""}</div>
   <div class="list-h">保存状況</div><div class="list"><div class="li">写真の枚数<span class="sub" style="margin-left:auto">${total}枚</span></div><div class="li">写真アプリにも残っている<span class="sub" style="margin-left:auto">${lib}枚</span></div></div>
   <div class="list"><button class="li" style="color:var(--danger)" onclick="confirmReset()"><span class="ms">delete_forever</span>すべてのデータを消す</button></div>`)}
 function openUnlock(){
@@ -512,7 +517,7 @@ async function loadState(){
   try{DB.db=await idb();
     const meta=await tx("kv","readonly",st=>st.get("state"));
     if(meta){const srcs=await tx("photos","readonly",st=>st.getAll());const keys=await tx("photos","readonly",st=>st.getAllKeys());const map={};keys.forEach((k,i)=>map[k]=srcs[i]);
-      Object.assign(S,{cats:meta.cats||[],folders:meta.folders||[],policy:meta.policy||"ask",unlocked:!!meta.unlocked,hideBanner:!!meta.hideBanner});
+      Object.assign(S,{cats:meta.cats||[],folders:meta.folders||[],policy:meta.policy||"ask",unlocked:!!meta.unlocked,hideBanner:!!meta.hideBanner,lastBackup:meta.lastBackup||0});
       S.photos=(meta.photos||[]).filter(p=>map[p.id]).map(p=>({...p,src:map[p.id]}));
       keys.forEach(k=>DB.saved.add(k));uid=Math.max(uid,meta.uid||1)}
     if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
@@ -520,7 +525,7 @@ async function loadState(){
   DB.ready=true}
 function scheduleSave(){if(!DB.ready||!DB.db)return;clearTimeout(DB.timer);DB.timer=setTimeout(saveState,400)}
 async function saveState(){
-  try{const meta={cats:S.cats,folders:S.folders,policy:S.policy,unlocked:S.unlocked,hideBanner:S.hideBanner,uid,photos:S.photos.map(({src,...m})=>m)};
+  try{const meta={cats:S.cats,folders:S.folders,policy:S.policy,unlocked:S.unlocked,hideBanner:S.hideBanner,lastBackup:S.lastBackup||0,uid,photos:S.photos.map(({src,...m})=>m)};
     const ids=new Set(S.photos.map(p=>p.id));
     const toAdd=S.photos.filter(p=>!DB.saved.has(p.id));const toDel=[...DB.saved].filter(k=>!ids.has(k));
     await new Promise((res,rej)=>{const t=DB.db.transaction(["kv","photos"],"readwrite");t.objectStore("kv").put(meta,"state");const ps=t.objectStore("photos");toAdd.forEach(p=>ps.put(p.src,p.id));toDel.forEach(k=>ps.delete(k));t.oncomplete=res;t.onerror=()=>rej(t.error)});
@@ -535,6 +540,39 @@ async function sharePhotos(list){
     if(navigator.canShare&&navigator.canShare({files})){await navigator.share({files});return}
     toast("このブラウザでは保存できません。写真を長押しして保存してください")
   }catch(e){if(e&&e.name==="AbortError")return;toast("保存をキャンセルしました")}}
+/* ---------- バックアップ ---------- */
+async function makeBackup(){
+  if(!S.photos.length&&!S.cats.length){toast("まだバックアップするデータがありません");return}
+  toast("バックアップを作っています…");
+  const data={app:"photopocket",version:1,exportedAt:new Date().toISOString(),cats:S.cats,folders:S.folders,policy:S.policy,photos:S.photos};
+  const d=new Date();const name=`フォトポケット_バックアップ_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.json`;
+  const file=new File([JSON.stringify(data)],name,{type:"application/json"});
+  const done=()=>{S.lastBackup=Date.now();scheduleSave()};
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});done();toast("「ファイルに保存」を選んでいれば保存できています");return}
+  }catch(e){if(e&&e.name==="AbortError"){toast("バックアップをキャンセルしました");return}}
+  try{const url=URL.createObjectURL(file);const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);done();toast("「ダウンロード」フォルダに保存しました")}
+  catch(e){toast("このブラウザではバックアップを保存できません")}
+}
+function pickRestore(){closeSheet();const el=$("#restorePicker");el.value="";el.click()}
+$("#restorePicker").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  let data;try{data=JSON.parse(await f.text())}catch(err){toast("バックアップのファイルを読み込めませんでした");return}
+  if(!data||data.app!=="photopocket"||!Array.isArray(data.photos)){toast("フォトポケットのバックアップではないようです");return}
+  const n=data.photos.length,c=(data.cats||[]).length;
+  showAction("バックアップから戻します",`分類${c}こ・写真${n}枚が入っています（${new Date(data.exportedAt).toLocaleDateString("ja-JP")}に作成）。`,[
+    {label:"今のデータと入れ替える",danger:true,fn:()=>restoreBackup(data,false)},
+    {label:"今のデータに追加する",fn:()=>restoreBackup(data,true)}]);
+});
+function restoreBackup(data,merge){
+  const map={};const nid=old=>{if(!old)return old;if(!map[old])map[old]=id();return map[old]};
+  let cats=data.cats||[],folders=data.folders||[],photos=data.photos||[];
+  if(merge){cats=cats.map(c=>({...c,id:nid(c.id)}));folders=folders.map(f=>({...f,id:nid(f.id),catId:f.catId?nid(f.catId):""}));photos=photos.map(p=>({...p,id:nid(p.id),folderId:nid(p.folderId)}));
+    S.cats.push(...cats);S.folders.push(...folders);S.photos.push(...photos)}
+  else{if(S.curCat){$("#cat").classList.add("off");S.curCat=null}if(S.cur){$("#folder").classList.add("off");S.cur=null}$("#home").classList.remove("under");
+    S.cats=cats;S.folders=folders;S.photos=photos;if(data.policy)S.policy=data.policy;photos.forEach(p=>DB.saved.delete(p.id));
+    const nums=[...cats,...folders,...photos].map(x=>parseInt(String(x.id).replace(/\D/g,""))||0);uid=Math.max(uid,...nums,0)+1}
+  S.tab="home";render();scheduleSave();toast(`分類${cats.length}こ・写真${photos.length}枚を戻しました`)}
 applyMode();
 loadState().then(()=>{render()});
 </script>
