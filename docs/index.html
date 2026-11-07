@@ -262,7 +262,7 @@ function headerHTML(withStats){const modeIc=S.mode==="dark"?"dark_mode":S.mode==
   if(withStats){const ic=S.unlocked;
     h+=`<div style="display:flex;gap:10px;margin-top:18px">
     <button class="stat" onclick="switchTab('all')"><span class="sic" style="background:#FFE6EC;color:#E8577D"><span class="ms">image</span></span><b>${S.photos.length}</b><span>写真</span></button>
-    <button class="stat" onclick="switchTab('folders')"><span class="sic" style="background:#FFF1D9;color:#D98A1E"><span class="ms">folder</span></span><b>${S.folders.length}</b><span>フォルダ</span></button>
+    <button class="stat" onclick="switchTab('folders')"><span class="sic" style="background:#FFF1D9;color:#D98A1E"><span class="ms">folder</span></span><b>${realFolders().length}</b><span>フォルダ</span></button>
     <button class="stat" onclick="openUnlock()"><span class="sic" style="background:#E3F0FF;color:#2E7FD9"><span class="ms">${ic?"cloud_done":"cloud"}</span></span><b>${ic?"オン":"オフ"}</b><span>iCloud</span></button></div>`}
   return h+`</div>`}
 function heroHTML(){return `<div class="hero"><svg viewBox="0 0 400 140" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
@@ -277,6 +277,9 @@ function heroHTML(){return `<div class="hero"><svg viewBox="0 0 400 140" preserv
 <button class="hero-btn l" onclick="openSettings()"><span class="ms" style="color:#8B6A4A">settings</span>設定</button>
 <button class="hero-btn r" onclick="modeMenu(event)"><span class="ms" style="color:${S.mode==="dark"?"#5E5CE6":S.mode==="system"?"#8B6A4A":"#FFB800"};font-size:26px">${S.mode==="dark"?"dark_mode":S.mode==="system"?"contrast":"light_mode"}</span>モード</button>
 <div class="hero-title"><svg width="34" height="29" viewBox="0 0 40 34" style="flex-shrink:0" aria-hidden="true"><rect x="3" y="4" width="32" height="26" rx="4" fill="#6FA8E8" transform="rotate(-10 19 17)"/><rect x="6" y="6" width="28" height="22" rx="3" fill="#fff" transform="rotate(-10 19 17)"/><rect x="8.5" y="8.5" width="23" height="17" rx="2" fill="#BFE3FF" transform="rotate(-10 19 17)"/><path d="M9 26 L17 17 L22 22 L26 18 L31 23 L31 26Z" fill="#7CC36A" transform="rotate(-10 19 17)"/><circle cx="26" cy="12" r="3" fill="#FFD23C"/></svg><b>フォトポケット</b></div></div>`}
+function realFolders(){return S.folders.filter(f=>!f.inbox)}
+function inboxOf(cid,create){let f=S.folders.find(x=>x.inbox&&x.catId===cid);if(!f&&create){const c=catById(cid);f={id:id(),name:c?c.name:"写真",color:c?(c.color||"pink"):"pink",catId:cid,inbox:true};S.folders.push(f)}return f}
+function folderLabel(f){if(!f)return"";if(f.inbox){const c=catById(f.catId);return c?c.name:"写真"}return f.name}
 function catColor(c){return COLORS[c.color||"pink"]}
 function catPhotos(cid){const fids=S.folders.filter(f=>f.catId===cid).map(f=>f.id);return S.photos.filter(p=>fids.includes(p.folderId)).sort((a,b)=>b.date-a.date)}
 function renderHome(){
@@ -288,10 +291,10 @@ function renderHome(){
   }
   let h=headerHTML(true)+`<div class="wrap">`;
   h+=`<div class="sec-head" style="margin-top:28px"><h2>分類 <span class="sub" style="font-weight:500">${S.cats.length}こ</span></h2><button class="addchip" onclick="openCatEditor()"><span class="ms">add</span>追加</button></div><div class="grid2">`;
-  S.cats.forEach(c=>{const col=catColor(c);const fs=S.folders.filter(f=>f.catId===c.id);const ps=catPhotos(c.id);
-    h+=`<div class="card ccard" onclick="openCategory('${c.id}')" oncontextmenu="event.preventDefault();catMenu(event,'${c.id}')"><span class="ms chev">chevron_right</span><div class="cicon" style="background:${col}24;color:${col}"><span class="ms">${c.icon}</span></div><div><div class="cname">${esc(c.name)}</div><div class="sub" style="font-size:12px">フォルダ${fs.length}つ・${ps.length}枚</div></div><div class="mini">${ps.slice(0,4).map(p=>`<span style="background-image:url(${p.src})"></span>`).join("")||`<span style="background:${col}22"></span>`}</div></div>`});
+  S.cats.forEach(c=>{const col=catColor(c);const fs=realFolders().filter(f=>f.catId===c.id);const ps=catPhotos(c.id);
+    h+=`<div class="card ccard" onclick="openCategory('${c.id}')" oncontextmenu="event.preventDefault();catMenu(event,'${c.id}')"><span class="ms chev">chevron_right</span><div class="cicon" style="background:${col}24;color:${col}"><span class="ms">${c.icon}</span></div><div><div class="cname">${esc(c.name)}</div><div class="sub" style="font-size:12px">${fs.length?`フォルダ${fs.length}つ・`:""}${ps.length}枚</div></div><div class="mini">${ps.slice(0,4).map(p=>`<span style="background-image:url(${p.src})"></span>`).join("")||`<span style="background:${col}22"></span>`}</div></div>`});
   h+=`<button class="addcard" style="min-height:170px" onclick="openCatEditor()"><span class="plus"><span class="ms">add</span></span>分類を追加</button></div>`;
-  const none=S.folders.filter(f=>!catById(f.catId));
+  const none=realFolders().filter(f=>!catById(f.catId));
   if(none.length){h+=`<div class="sec-head"><h2>未分類のフォルダ</h2></div><div class="grid2">${none.map(folderCardHTML).join("")}</div>`}
   el.innerHTML=h+`</div>`;
 }
@@ -302,10 +305,15 @@ function folderCardHTML(f){const ps=folderPhotos(f.id);const col=COLORS[f.color]
 /* ---------- 分類の中（フォルダ一覧） ---------- */
 function openCategory(cid){S.curCat=cid;renderCategory();$("#cat").classList.remove("off");$("#home").classList.add("under")}
 function closeCategory(){$("#cat").classList.add("off");$("#home").classList.remove("under");S.curCat=null;render()}
-function renderCategory(){const c=catById(S.curCat);if(!c){closeCategory();return}const col=catColor(c);const fs=S.folders.filter(f=>f.catId===c.id);
+function renderCategory(){const c=catById(S.curCat);if(!c){closeCategory();return}const col=catColor(c);const fs=realFolders().filter(f=>f.catId===c.id);
+  const ib=inboxOf(c.id,false);const direct=ib?folderPhotos(ib.id):[];
   let h=`<div class="nav"><button onclick="closeCategory()"><span class="ms">chevron_left</span>ホーム</button><b></b><button onclick="catMenu(event,'${c.id}')" aria-label="メニュー"><span class="ms">more_horiz</span></button></div>
-  <div class="wrap"><div class="row" style="margin:6px 2px 18px"><div class="cicon" style="background:${col}24;color:${col};width:54px;height:54px"><span class="ms">${c.icon}</span></div><div><div style="font-size:26px;font-weight:800">${esc(c.name)}</div><div class="sub">フォルダ${fs.length}つ・${catPhotos(c.id).length}枚</div></div></div>
-  <div class="grid2">${fs.map(folderCardHTML).join("")}<button class="addcard" style="min-height:190px" onclick="openFolderEditor(null,'${c.id}')"><span class="plus"><span class="ms">add</span></span>フォルダを追加</button></div></div>`;
+  <div class="wrap"><div class="row" style="margin:6px 2px 6px"><div class="cicon" style="background:${col}24;color:${col};width:54px;height:54px"><span class="ms">${c.icon}</span></div><div><div style="font-size:26px;font-weight:800">${esc(c.name)}</div><div class="sub">${fs.length?`フォルダ${fs.length}つ・`:""}${catPhotos(c.id).length}枚</div></div></div>`;
+  if(fs.length){h+=`<div class="sec-head" style="margin-top:18px"><h2>フォルダ</h2><button class="addchip" onclick="openFolderEditor(null,'${c.id}')"><span class="ms">add</span>フォルダ</button></div><div class="grid2">${fs.map(folderCardHTML).join("")}</div>`}
+  h+=`<div class="sec-head" style="margin-top:${fs.length?26:18}px"><h2>写真 <span class="sub" style="font-weight:500">${direct.length}枚</span></h2>${fs.length?"":`<button class="addchip" style="background:var(--card);color:var(--text);box-shadow:none;border:1px solid var(--line)" onclick="openFolderEditor(null,'${c.id}')"><span class="ms">create_new_folder</span>フォルダを作る</button>`}</div>`;
+  h+=direct.length?`<div class="grid3">`+direct.map(p=>`<div class="th" onclick="tapCatPhoto('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}${p.memo?`<span class="memo"><span class="ms">chat_bubble</span></span>`:""}</div>`).join("")+`</div>`
+    :`<div class="card" style="padding:26px 18px;text-align:center"><span class="ms" style="font-size:40px;color:${col}">add_photo_alternate</span><div style="font-weight:800;margin-top:8px">ここに写真を入れられます</div><div class="sub" style="margin-top:4px;line-height:1.6">フォルダを作らなくても、<br>下のボタンからこの分類に直接取り込めます。</div></div>`;
+  h+=`</div><div class="fab"><button class="bigbtn" onclick="pickToCat('${c.id}')"><span class="ms">add</span>写真を取り込む</button></div>`;
   $("#cat").innerHTML=h}
 
 /* ---------- タブ（すべての写真・フォルダ・最近の写真） ---------- */
@@ -314,15 +322,15 @@ function renderTabbar(){const tabs=[["home","home","ホーム"],["all","image","
   t.classList.toggle("hide",S.selecting)}
 function switchTab(k){S.tab=k;S.selecting=false;S.selected.clear();if(S.cur){$("#folder").classList.add("off");S.cur=null}$("#cat").classList.remove("under");if(S.curCat){$("#cat").classList.add("off");S.curCat=null}$("#home").classList.remove("under");$("#home").scrollTop=0;render()}
 function photoGrid(ps,clickFn){return `<div class="grid3">`+ps.map(p=>`<div class="th" onclick="${clickFn}('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}${p.memo?`<span class="memo"><span class="ms">chat_bubble</span></span>`:""}</div>`).join("")+`</div>`}
-function openFromAnywhere(pid){const p=S.photos.find(x=>x.id===pid);if(!p)return;S.cur=p.folderId;S.selecting=false;S.selected.clear();renderFolder();openViewer(pid)}
+function openFromAnywhere(pid){const p=S.photos.find(x=>x.id===pid);if(!p)return;S.viewFolder=p.folderId;openViewer(pid)}
 function renderTabRoot(){const el=$("#home");let h="";
   if(S.tab==="all"){const ps=[...S.photos].sort((a,b)=>b.date-a.date);h=`<div class="root-title">すべての写真</div><div class="wrap">`;
     if(!ps.length)h+=`<div class="empty"><div class="halo"><div><span class="ms">image</span></div></div><h3>写真はまだありません</h3><p>フォルダを開いて取り込みましょう。</p></div>`;
     else{let last="";ps.forEach(p=>{const d=new Date(p.date);const k=`${d.getFullYear()}年${d.getMonth()+1}月`;if(k!==last){if(last)h+=`</div>`;h+=`<div class="dayh">${k}</div><div class="grid3">`;last=k}h+=`<div class="th" onclick="openFromAnywhere('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}</div>`});h+=`</div>`}
     h+=`</div>`}
   if(S.tab==="folders"){h=`<div class="root-title">フォルダ</div>`;
-    const groups=S.cats.map(c=>[c,S.folders.filter(f=>f.catId===c.id)]);const none=S.folders.filter(f=>!catById(f.catId));
-    groups.forEach(([c,fs])=>{h+=`<div class="list-h">${esc(c.name)}</div><div class="list flist">`+(fs.length?fs.map(f=>`<button class="li" onclick="openFolder('${f.id}')"><span class="ms" style="color:${COLORS[f.color]}">folder</span><span style="flex:1">${esc(f.name)}</span><span class="sub">${folderPhotos(f.id).length}枚</span><span class="ms" style="color:var(--sub)">chevron_right</span></button>`).join(""):`<button class="li" onclick="openFolderEditor(null,'${c.id}')" style="color:var(--accent)"><span class="ms">add</span>フォルダを追加</button>`)+`</div>`});
+    const groups=S.cats.map(c=>[c,realFolders().filter(f=>f.catId===c.id)]);const none=realFolders().filter(f=>!catById(f.catId));
+    groups.forEach(([c,fs])=>{const ib=inboxOf(c.id,false);const dn=ib?folderPhotos(ib.id).length:0;h+=`<div class="list-h">${esc(c.name)}</div><div class="list flist">`+(dn?`<button class="li" onclick="switchTab('home');openCategory('${c.id}')"><span class="ms" style="color:${catColor(c)}">${c.icon}</span><span style="flex:1">${esc(c.name)}（直接）</span><span class="sub">${dn}枚</span><span class="ms" style="color:var(--sub)">chevron_right</span></button>`:"")+(fs.length?fs.map(f=>`<button class="li" onclick="openFolder('${f.id}')"><span class="ms" style="color:${COLORS[f.color]}">folder</span><span style="flex:1">${esc(f.name)}</span><span class="sub">${folderPhotos(f.id).length}枚</span><span class="ms" style="color:var(--sub)">chevron_right</span></button>`).join(""):`<button class="li" onclick="openFolderEditor(null,'${c.id}')" style="color:var(--accent)"><span class="ms">add</span>フォルダを追加</button>`)+`</div>`});
     if(none.length)h+=`<div class="list-h">未分類</div><div class="list flist">`+none.map(f=>`<button class="li" onclick="openFolder('${f.id}')"><span class="ms" style="color:${COLORS[f.color]}">folder</span><span style="flex:1">${esc(f.name)}</span><span class="sub">${folderPhotos(f.id).length}枚</span></button>`).join("")+`</div>`;
     if(!S.folders.length&&!S.cats.length)h+=`<div class="empty"><p>まだフォルダがありません。</p></div>`}
   if(S.tab==="recent"){const ps=[...S.photos].sort((a,b)=>(b.added||0)-(a.added||0)||b.date-a.date).slice(0,30);h=`<div class="root-title">最近の写真</div><div class="wrap"><div class="sub" style="margin:-6px 4px 12px">最近取り込んだ写真（新しい順）</div>`+(ps.length?photoGrid(ps,"openFromAnywhere"):`<div class="empty"><div class="halo"><div><span class="ms">schedule</span></div></div><h3>まだありません</h3><p>取り込んだ写真がここに並びます。</p></div>`)+`</div>`}
@@ -351,20 +359,22 @@ function renderFolder(){
   $("#folder").innerHTML=h;
   renderTabbar();
 }
-function tapPhoto(pid){if(S.selecting){S.selected.has(pid)?S.selected.delete(pid):S.selected.add(pid);renderFolder()}else openViewer(pid)}
+function tapPhoto(pid){if(S.selecting){S.selected.has(pid)?S.selected.delete(pid):S.selected.add(pid);renderFolder()}else{S.viewFolder=S.cur;openViewer(pid)}}
+function tapCatPhoto(pid){const p=S.photos.find(x=>x.id===pid);if(!p)return;S.viewFolder=p.folderId;openViewer(pid)}
 function toggleAll(){const ps=folderPhotos(S.cur);if(S.selected.size===ps.length)S.selected.clear();else ps.forEach(p=>S.selected.add(p.id));renderFolder()}
 function endSelect(){S.selecting=false;S.selected.clear();renderFolder()}
 
 /* ---------- 取り込み ---------- */
-function pick(){$("#picker").value="";$("#picker").click()}
+function pickToCat(cid){S.importTarget=inboxOf(cid,true).id;$("#picker").value="";$("#picker").click()}
+function pick(){S.importTarget=null;$("#picker").value="";$("#picker").click()}
 $("#picker").addEventListener("change",async e=>{
   const files=[...e.target.files];if(!files.length)return;
   toast(`取り込み中… 0/${files.length}`);const added=[];
   for(let i=0;i<files.length;i++){
-    try{const src=await shrink(files[i]);const p={id:id(),folderId:S.cur,src,memo:"",inLib:true,date:files[i].lastModified||Date.now(),added:Date.now()+i};S.photos.push(p);added.push(p)}catch(err){}
+    try{const src=await shrink(files[i]);const p={id:id(),folderId:S.importTarget||S.cur,src,memo:"",inLib:true,date:files[i].lastModified||Date.now(),added:Date.now()+i};S.photos.push(p);added.push(p)}catch(err){}
     toast(`取り込み中… ${i+1}/${files.length}`);
   }
-  renderFolder();
+  S.importTarget=null;rerender();
   if(!added.length){toast("取り込めませんでした");return}
   S.justImported=added.map(p=>p.id);
   if(S.policy==="keep"){toast(`${added.length}枚を取り込みました`)}
@@ -385,11 +395,11 @@ function askCleanup(){const ids=folderPhotos(S.cur).filter(p=>p.inLib).map(p=>p.
   showAction(`写真アプリに残っている${ids.length}枚を削除しますか？`,"このアプリ内の写真はそのまま残ります。",[{label:"写真アプリから削除する",danger:true,fn:()=>systemDeleteConfirm(ids)}])}
 
 /* ---------- ビューア ---------- */
-function openViewer(pid){const ps=folderPhotos(S.cur);S.vIndex=Math.max(0,ps.findIndex(p=>p.id===pid));renderViewer();$("#viewer").classList.add("show")}
-function closeViewer(){$("#viewer").classList.remove("show");renderFolder()}
-function curPhoto(){return folderPhotos(S.cur)[S.vIndex]}
-function stepViewer(d){const n=folderPhotos(S.cur).length;S.vIndex=(S.vIndex+d+n)%n;renderViewer()}
-function renderViewer(){const ps=folderPhotos(S.cur);const p=ps[S.vIndex];if(!p){closeViewer();return}
+function openViewer(pid){if(!S.viewFolder)S.viewFolder=S.cur;const ps=folderPhotos(S.viewFolder);S.vIndex=Math.max(0,ps.findIndex(p=>p.id===pid));renderViewer();$("#viewer").classList.add("show")}
+function closeViewer(){$("#viewer").classList.remove("show");S.viewFolder=null;rerender()}
+function curPhoto(){return folderPhotos(S.viewFolder)[S.vIndex]}
+function stepViewer(d){const n=folderPhotos(S.viewFolder).length;S.vIndex=(S.vIndex+d+n)%n;renderViewer()}
+function renderViewer(){const ps=folderPhotos(S.viewFolder);const p=ps[S.vIndex];if(!p){closeViewer();return}
   $("#v-pic").src=p.src;const d=new Date(p.date);$("#v-title").textContent=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}  ${S.vIndex+1}/${ps.length}`;
   $("#v-lib").textContent=p.inLib?"smartphone":"";$("#v-memo").innerHTML=p.memo?`<span>${esc(p.memo)}</span>`:"";$("#v-memo-ic").textContent=p.memo?"chat":"chat_bubble";
   document.querySelectorAll(".v-arrow").forEach(b=>b.style.display=ps.length>1?"flex":"none")}
@@ -405,20 +415,25 @@ function saveMemo(){curPhoto().memo=$("#memo-in").value.trim();closeSheet();rend
 
 /* ---------- 削除・移動 ---------- */
 function confirmAppDelete(ids){const gone=ids.filter(i=>!S.photos.find(p=>p.id===i)?.inLib).length;
-  showAction(`${ids.length}枚をこのアプリから削除しますか？`,gone?`そのうち${gone}枚は写真アプリから削除済みです。アプリから消すと元に戻せません。`:"写真アプリには元の写真が残っています。",[{label:"アプリから削除",danger:true,fn:()=>{S.photos=S.photos.filter(p=>!ids.includes(p.id));S.selected.clear();S.selecting=false;if($("#viewer").classList.contains("show")){const n=folderPhotos(S.cur).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}renderFolder();toast("削除しました")}}])}
+  showAction(`${ids.length}枚をこのアプリから削除しますか？`,gone?`そのうち${gone}枚は写真アプリから削除済みです。アプリから消すと元に戻せません。`:"写真アプリには元の写真が残っています。",[{label:"アプリから削除",danger:true,fn:()=>{S.photos=S.photos.filter(p=>!ids.includes(p.id));S.selected.clear();S.selecting=false;if($("#viewer").classList.contains("show")){const n=folderPhotos(S.viewFolder).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}renderFolder();toast("削除しました")}}])}
 function selectDeleteMenu(anyLib){const ids=[...S.selected];const items=[];
   if(anyLib)items.push({label:"写真アプリから削除（アプリには残す）",danger:true,fn:()=>{systemDeleteConfirm(ids.filter(i=>S.photos.find(p=>p.id===i)?.inLib));endSelect()}});
   items.push({label:"写真アプリに保存",fn:()=>{sharePhotos(ids.map(i=>S.photos.find(p=>p.id===i)).filter(Boolean));endSelect()}});
   items.push({label:"このアプリから削除",danger:true,fn:()=>confirmAppDelete(ids)});
   showAction(`${ids.length}枚を選択中`,"",items)}
 function openMove(from){
-  let h=`<div class="sheet-head"><button class="textbtn" onclick="closeSheet()">キャンセル</button><b>移動先のフォルダ</b><span style="width:70px"></span></div>`;
-  const groups=S.cats.map(c=>[c.name,S.folders.filter(f=>f.catId===c.id)]);const none=S.folders.filter(f=>!catById(f.catId));if(none.length)groups.push(["未分類",none]);
-  groups.forEach(([n,fs])=>{if(!fs.length)return;h+=`<div class="list-h">${esc(n)}</div><div class="list">`+fs.map(f=>`<button class="li" ${f.id===S.cur?"disabled style='opacity:.4'":""} onclick="doMove('${f.id}','${from}')"><span class="ms" style="color:${COLORS[f.color]}">folder</span>${esc(f.name)}${f.id===S.cur?'<span class="sub" style="margin-left:auto">現在</span>':""}</button>`).join("")+`</div>`});
+  let h=`<div class="sheet-head"><button class="textbtn" onclick="closeSheet()">キャンセル</button><b>移動先</b><span style="width:70px"></span></div>`;
+  const curF=from==="viewer"?S.viewFolder:S.cur;
+  const row=(f)=>`<button class="li" ${f.id===curF?"disabled style='opacity:.4'":""} onclick="doMove('${f.id}','${from}')"><span class="ms" style="color:${COLORS[f.color]}">folder</span>${esc(f.name)}${f.id===curF?'<span class="sub" style="margin-left:auto">現在</span>':""}</button>`;
+  S.cats.forEach(c=>{const fs=realFolders().filter(f=>f.catId===c.id);const ib=inboxOf(c.id,false);const isCur=ib&&ib.id===curF;
+    h+=`<div class="list-h">${esc(c.name)}</div><div class="list"><button class="li" ${isCur?"disabled style='opacity:.4'":""} onclick="doMoveToCat('${c.id}','${from}')"><span class="ms" style="color:${catColor(c)}">${c.icon}</span>「${esc(c.name)}」に直接入れる${isCur?'<span class="sub" style="margin-left:auto">現在</span>':""}</button>${fs.map(row).join("")}</div>`});
+  const none=realFolders().filter(f=>!catById(f.catId));
+  if(none.length)h+=`<div class="list-h">未分類</div><div class="list">${none.map(row).join("")}</div>`;
   openSheet(h)}
+function doMoveToCat(cid,from){const f=inboxOf(cid,true);doMove(f.id,from)}
 function doMove(fid,from){const ids=from==="viewer"?[curPhoto().id]:[...S.selected];ids.forEach(i=>{const p=S.photos.find(x=>x.id===i);if(p)p.folderId=fid});closeSheet();
-  toast(`「${folderById(fid).name}」に${ids.length}枚移動しました`);
-  if(from==="viewer"){const n=folderPhotos(S.cur).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}else endSelect()}
+  toast(`「${folderLabel(folderById(fid))}」に${ids.length}枚移動しました`);rerender();
+  if(from==="viewer"){const n=folderPhotos(S.viewFolder).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}else endSelect()}
 
 /* ---------- 分類・フォルダの作成 ---------- */
 let ed={};
@@ -447,7 +462,7 @@ function showMenu(ev,items){const m=$("#menu");m.innerHTML=items.map((it,i)=>`<b
   m.style.display="block";m.style.top=Math.min(r.bottom-app.top+6,app.height-m.offsetHeight-10)+"px";m.style.right=Math.max(10,app.right-r.right)+"px";$("#menu-mask").style.display="block"}
 function closeMenu(){$("#menu").style.display="none";$("#menu-mask").style.display="none"}
 function addMenu(ev){showMenu(ev,[{label:"新しいフォルダ",icon:"create_new_folder",fn:()=>openFolderEditor()},{label:"新しい分類",icon:"grid_view",fn:()=>openCatEditor()}])}
-function catMenu(ev,cid){showMenu(ev,[{label:"この分類にフォルダを追加",icon:"create_new_folder",fn:()=>openFolderEditor(null,cid)},{label:"分類を編集",icon:"edit",fn:()=>openCatEditor(cid)},{label:"分類を削除",icon:"delete",danger:true,fn:()=>{const c=catById(cid);showAction(`分類「${esc(c.name)}」を削除しますか？`,"中のフォルダと写真は消えずに「未分類」に移ります。",[{label:"分類を削除",danger:true,fn:()=>{S.cats=S.cats.filter(x=>x.id!==cid);S.folders.forEach(f=>{if(f.catId===cid)f.catId=""});if(S.curCat===cid)closeCategory();else render()}}])}}])}
+function catMenu(ev,cid){showMenu(ev,[{label:"この分類にフォルダを追加",icon:"create_new_folder",fn:()=>openFolderEditor(null,cid)},{label:"分類を編集",icon:"edit",fn:()=>openCatEditor(cid)},{label:"分類を削除",icon:"delete",danger:true,fn:()=>{const c=catById(cid);showAction(`分類「${esc(c.name)}」を削除しますか？`,"中のフォルダと写真は消えずに「未分類」に移ります。",[{label:"分類を削除",danger:true,fn:()=>{const ib=inboxOf(cid,false);if(ib){if(folderPhotos(ib.id).length){ib.inbox=false;ib.name=c.name+"の写真"}else S.folders=S.folders.filter(x=>x!==ib)}S.cats=S.cats.filter(x=>x.id!==cid);S.folders.forEach(f=>{if(f.catId===cid)f.catId=""});if(S.curCat===cid)closeCategory();else render()}}])}}])}
 function folderMenu(ev,fid){showMenu(ev,[{label:"フォルダを編集",icon:"edit",fn:()=>openFolderEditor(fid)},{label:"フォルダを削除",icon:"delete",danger:true,fn:()=>{const f=folderById(fid);const n=folderPhotos(fid).length;showAction(`フォルダ「${esc(f.name)}」を削除しますか？`,`中の写真${n}枚もアプリから削除されます。`,[{label:"フォルダと中の写真を削除",danger:true,fn:()=>{S.folders=S.folders.filter(x=>x.id!==fid);S.photos=S.photos.filter(p=>p.folderId!==fid);render()}}])}}])}
 function folderPageMenu(ev){const ps=folderPhotos(S.cur);const inLib=ps.filter(p=>p.inLib).length;showMenu(ev,[
   {label:"写真を選択",icon:"check_circle",fn:()=>{if(!ps.length){toast("写真がありません");return}S.selecting=true;renderFolder()}},
