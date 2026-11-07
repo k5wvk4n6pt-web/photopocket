@@ -305,22 +305,28 @@ function folderCardHTML(f){const ps=folderPhotos(f.id);const col=COLORS[f.color]
 
 /* ---------- 分類の中（フォルダ一覧） ---------- */
 function openCategory(cid){S.curCat=cid;renderCategory();$("#cat").classList.remove("off");$("#home").classList.add("under")}
-function closeCategory(){$("#cat").classList.add("off");$("#home").classList.remove("under");S.curCat=null;render()}
+function closeCategory(){S.catSelecting=false;S.selected.clear();$("#cat").classList.add("off");$("#home").classList.remove("under");S.curCat=null;render()}
 function renderCategory(){const c=catById(S.curCat);if(!c){closeCategory();return}const col=catColor(c);const fs=realFolders().filter(f=>f.catId===c.id);
   const ib=inboxOf(c.id,false);const direct=ib?folderPhotos(ib.id):[];
   let h=`<div class="nav"><button onclick="closeCategory()"><span class="ms">chevron_left</span>ホーム</button><b></b><button onclick="catMenu(event,'${c.id}')" aria-label="メニュー"><span class="ms">more_horiz</span></button></div>
   <div class="wrap"><div class="row" style="margin:6px 2px 6px"><div class="cicon" style="background:${col}24;color:${col};width:54px;height:54px"><span class="ms">${c.icon}</span></div><div><div style="font-size:26px;font-weight:800">${esc(c.name)}</div><div class="sub">${fs.length?`フォルダ${fs.length}つ・`:""}${catPhotos(c.id).length}枚</div></div></div>`;
   if(fs.length){h+=`<div class="sec-head" style="margin-top:18px"><h2>フォルダ</h2><button class="addchip" onclick="openFolderEditor(null,'${c.id}')"><span class="ms">add</span>フォルダ</button></div><div class="grid2">${fs.map(folderCardHTML).join("")}</div>`}
-  h+=`<div class="sec-head" style="margin-top:${fs.length?26:18}px"><h2>写真 <span class="sub" style="font-weight:500">${direct.length}枚</span></h2>${fs.length?"":`<button class="addchip" style="background:var(--card);color:var(--text);box-shadow:none;border:1px solid var(--line)" onclick="openFolderEditor(null,'${c.id}')"><span class="ms">create_new_folder</span>フォルダを作る</button>`}</div>`;
-  h+=direct.length?`<div class="grid3">`+direct.map(p=>`<div class="th" onclick="tapCatPhoto('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}${p.memo?`<span class="memo"><span class="ms">chat_bubble</span></span>`:""}</div>`).join("")+`</div>`
+  const dids=direct.map(p=>p.id);const sel=S.catSelecting;
+  const rightBtn=sel?`<button class="textbtn" style="padding:6px" onclick='toggleCatAll(${JSON.stringify(dids)})'>${S.selected.size===dids.length?"選択解除":"すべて選択"}</button><button class="addchip" onclick="endCatSelect()">完了</button>`
+    :(direct.length?`<button class="addchip" style="background:var(--card);color:var(--text);box-shadow:none;border:1px solid var(--line)" onclick="startCatSelect()"><span class="ms">check_circle</span>選択</button>`:"")+(fs.length?"":`<button class="addchip" style="background:var(--card);color:var(--text);box-shadow:none;border:1px solid var(--line)" onclick="openFolderEditor(null,'${c.id}')"><span class="ms">create_new_folder</span>フォルダ</button>`);
+  h+=`<div class="sec-head" style="margin-top:${fs.length?26:18}px"><h2>写真 <span class="sub" style="font-weight:500">${direct.length}枚</span></h2><div style="display:flex;gap:6px;align-items:center">${rightBtn}</div></div>`;
+  if(direct.length&&!sel&&fs.length)h+=`<div class="sub" style="font-size:12px;margin:-6px 4px 10px">「選択」で写真を選んで、フォルダに入れられます</div>`;
+  h+=direct.length?`<div class="grid3">`+direct.map(p=>`<div class="th ${sel&&S.selected.has(p.id)?"sel":""}" onclick="${sel?"toggleCatPhoto":"tapCatPhoto"}('${p.id}')">${sel?`<span class="chk">${S.selected.has(p.id)?'<span class="ms" style="font-size:16px;color:#fff">check</span>':""}</span>`:""}<img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}${p.memo?`<span class="memo"><span class="ms">chat_bubble</span></span>`:""}</div>`).join("")+`</div>`
     :`<div class="card" style="padding:26px 18px;text-align:center"><span class="ms" style="font-size:40px;color:${col}">add_photo_alternate</span><div style="font-weight:800;margin-top:8px">ここに写真を入れられます</div><div class="sub" style="margin-top:4px;line-height:1.6">フォルダを作らなくても、<br>下のボタンからこの分類に直接取り込めます。</div></div>`;
-  h+=`</div><div class="fab"><button class="bigbtn" onclick="pickToCat('${c.id}')"><span class="ms">add</span>写真を取り込む</button></div>`;
+  h+=`</div>`;
+  if(sel){const any=S.selected.size>0;h+=`<div class="selbar"><button ${any?"":"disabled"} onclick="openMove('catsel')"><span class="ms">drive_file_move</span>フォルダに入れる</button><span class="sub" style="font-size:13px">${S.selected.size}枚選択</span><button ${any?"":"disabled"} onclick="confirmAppDelete([...S.selected])"><span class="ms">delete</span>削除</button></div>`}
+  else h+=`<div class="fab"><button class="bigbtn" onclick="pickToCat('${c.id}')"><span class="ms">add</span>写真を取り込む</button></div>`;
   $("#cat").innerHTML=h}
 
 /* ---------- タブ（すべての写真・フォルダ・最近の写真） ---------- */
 function renderTabbar(){const tabs=[["home","home","ホーム"],["all","image","すべての写真"],["folders","folder","フォルダ"],["recent","schedule","最近の写真"]];
   const t=$("#tabbar");t.innerHTML=tabs.map(([k,i,l])=>`<button class="${S.tab===k?"on":""}" onclick="switchTab('${k}')"><span class="ms">${i}</span>${l}</button>`).join("");
-  t.classList.toggle("hide",S.selecting)}
+  t.classList.toggle("hide",S.selecting||S.catSelecting)}
 function switchTab(k){S.tab=k;S.selecting=false;S.selected.clear();if(S.cur){$("#folder").classList.add("off");S.cur=null}$("#cat").classList.remove("under");if(S.curCat){$("#cat").classList.add("off");S.curCat=null}$("#home").classList.remove("under");$("#home").scrollTop=0;render()}
 function photoGrid(ps,clickFn){return `<div class="grid3">`+ps.map(p=>`<div class="th" onclick="${clickFn}('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}${p.memo?`<span class="memo"><span class="ms">chat_bubble</span></span>`:""}</div>`).join("")+`</div>`}
 function openFromAnywhere(pid){const p=S.photos.find(x=>x.id===pid);if(!p)return;S.viewFolder=p.folderId;openViewer(pid)}
@@ -353,7 +359,7 @@ function renderFolder(){
   }
   if(S.selecting){
     const any=S.selected.size>0;const anyLib=[...S.selected].some(i=>S.photos.find(p=>p.id===i)?.inLib);
-    h+=`<div class="selbar"><button ${any?"":"disabled"} onclick="openMove('select')"><span class="ms">drive_file_move</span>移動</button><span class="sub" style="font-size:13px">${S.selected.size}枚選択</span><button ${any?"":"disabled"} onclick="selectDeleteMenu(${anyLib})"><span class="ms">delete</span>削除など</button></div>`;
+    h+=`<div class="selbar"><button ${any?"":"disabled"} onclick="openMove('select')"><span class="ms">drive_file_move</span>移動</button>${f.catId&&catById(f.catId)?`<button ${any?"":"disabled"} onclick="takeOut()"><span class="ms">output</span>フォルダから出す</button>`:""}<span class="sub" style="font-size:13px">${S.selected.size}枚</span><button ${any?"":"disabled"} onclick="selectDeleteMenu(${anyLib})"><span class="ms">delete</span>削除など</button></div>`;
   }else if(ps.length){
     h+=`<div class="fab"><button class="bigbtn" onclick="pick()"><span class="ms">add</span>写真を取り込む</button></div>`;
   }
@@ -407,6 +413,7 @@ function renderViewer(){const ps=folderPhotos(S.viewFolder);const p=ps[S.vIndex]
 (()=>{let x0=null;const el=$("#v-img");el.addEventListener("touchstart",e=>x0=e.touches[0].clientX,{passive:true});el.addEventListener("touchend",e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>50)stepViewer(dx<0?1:-1);x0=null});
   let zoom=false;el.addEventListener("dblclick",()=>{zoom=!zoom;$("#v-pic").style.transform=zoom?"scale(2.2)":"none"})})();
 function viewerMenu(){const p=curPhoto();const items=[{label:"写真アプリに保存",fn:()=>sharePhotos([p])}];
+  {const f=folderById(p.folderId);const c=f&&catById(f.catId);if(f&&!f.inbox&&c)items.push({label:`フォルダから出す（「${esc(c.name)}」に直接）`,fn:takeOutOne});else items.push({label:"フォルダに入れる",fn:()=>openMove("viewer")})}
   if(p.inLib)items.push({label:"写真アプリから削除（アプリには残す）",danger:true,fn:()=>systemDeleteConfirm([p.id])});
   items.push({label:"このアプリから削除",danger:true,fn:()=>confirmAppDelete([p.id])});
   showAction("この写真",p.inLib?"写真アプリにも残っています。":"写真アプリからは削除済みです。",items)}
@@ -416,7 +423,7 @@ function saveMemo(){curPhoto().memo=$("#memo-in").value.trim();closeSheet();rend
 
 /* ---------- 削除・移動 ---------- */
 function confirmAppDelete(ids){const gone=ids.filter(i=>!S.photos.find(p=>p.id===i)?.inLib).length;
-  showAction(`${ids.length}枚をこのアプリから削除しますか？`,gone?`そのうち${gone}枚は写真アプリから削除済みです。アプリから消すと元に戻せません。`:"写真アプリには元の写真が残っています。",[{label:"アプリから削除",danger:true,fn:()=>{S.photos=S.photos.filter(p=>!ids.includes(p.id));S.selected.clear();S.selecting=false;if($("#viewer").classList.contains("show")){const n=folderPhotos(S.viewFolder).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}renderFolder();toast("削除しました")}}])}
+  showAction(`${ids.length}枚をこのアプリから削除しますか？`,gone?`そのうち${gone}枚は写真アプリから削除済みです。アプリから消すと元に戻せません。`:"写真アプリには元の写真が残っています。",[{label:"アプリから削除",danger:true,fn:()=>{S.photos=S.photos.filter(p=>!ids.includes(p.id));S.selected.clear();S.selecting=false;S.catSelecting=false;if($("#viewer").classList.contains("show")){const n=folderPhotos(S.viewFolder).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}rerender();toast("削除しました")}}])}
 function selectDeleteMenu(anyLib){const ids=[...S.selected];const items=[];
   if(anyLib)items.push({label:"写真アプリから削除（アプリには残す）",danger:true,fn:()=>{systemDeleteConfirm(ids.filter(i=>S.photos.find(p=>p.id===i)?.inLib));endSelect()}});
   items.push({label:"写真アプリに保存",fn:()=>{sharePhotos(ids.map(i=>S.photos.find(p=>p.id===i)).filter(Boolean));endSelect()}});
@@ -424,7 +431,7 @@ function selectDeleteMenu(anyLib){const ids=[...S.selected];const items=[];
   showAction(`${ids.length}枚を選択中`,"",items)}
 function openMove(from){
   let h=`<div class="sheet-head"><button class="textbtn" onclick="closeSheet()">キャンセル</button><b>移動先</b><span style="width:70px"></span></div>`;
-  const curF=from==="viewer"?S.viewFolder:S.cur;
+  const curF=from==="viewer"?S.viewFolder:from==="catsel"?(inboxOf(S.curCat,false)||{}).id:S.cur;
   const row=(f)=>`<button class="li" ${f.id===curF?"disabled style='opacity:.4'":""} onclick="doMove('${f.id}','${from}')"><span class="ms" style="color:${COLORS[f.color]}">folder</span>${esc(f.name)}${f.id===curF?'<span class="sub" style="margin-left:auto">現在</span>':""}</button>`;
   S.cats.forEach(c=>{const fs=realFolders().filter(f=>f.catId===c.id);const ib=inboxOf(c.id,false);const isCur=ib&&ib.id===curF;
     h+=`<div class="list-h">${esc(c.name)}</div><div class="list"><button class="li" ${isCur?"disabled style='opacity:.4'":""} onclick="doMoveToCat('${c.id}','${from}')"><span class="ms" style="color:${catColor(c)}">${c.icon}</span>「${esc(c.name)}」に直接入れる${isCur?'<span class="sub" style="margin-left:auto">現在</span>':""}</button>${fs.map(row).join("")}</div>`});
@@ -434,7 +441,13 @@ function openMove(from){
 function doMoveToCat(cid,from){const f=inboxOf(cid,true);doMove(f.id,from)}
 function doMove(fid,from){const ids=from==="viewer"?[curPhoto().id]:[...S.selected];ids.forEach(i=>{const p=S.photos.find(x=>x.id===i);if(p)p.folderId=fid});closeSheet();
   toast(`「${folderLabel(folderById(fid))}」に${ids.length}枚移動しました`);rerender();
-  if(from==="viewer"){const n=folderPhotos(S.viewFolder).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}else endSelect()}
+  if(from==="viewer"){const n=folderPhotos(S.viewFolder).length;if(!n)closeViewer();else{S.vIndex=Math.min(S.vIndex,n-1);renderViewer()}}else if(from==="catsel")endCatSelect();else endSelect()}
+function takeOut(){const f=folderById(S.cur);if(!f||!catById(f.catId))return;const ib=inboxOf(f.catId,true);doMove(ib.id,"select")}
+function takeOutOne(){const p=curPhoto();const f=folderById(p.folderId);if(!f||!catById(f.catId))return;doMove(inboxOf(f.catId,true).id,"viewer")}
+function startCatSelect(){S.catSelecting=true;S.selected.clear();renderCategory();renderTabbar()}
+function endCatSelect(){S.catSelecting=false;S.selected.clear();renderCategory();renderTabbar()}
+function toggleCatPhoto(pid){S.selected.has(pid)?S.selected.delete(pid):S.selected.add(pid);renderCategory()}
+function toggleCatAll(ids){if(S.selected.size===ids.length)S.selected.clear();else ids.forEach(i=>S.selected.add(i));renderCategory()}
 
 /* ---------- 分類・フォルダの作成 ---------- */
 let ed={};
