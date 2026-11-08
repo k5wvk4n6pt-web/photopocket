@@ -101,6 +101,7 @@ body{font-family:"M PLUS Rounded 1c",ui-rounded,"Hiragino Maru Gothic ProN",sans
 .viewer.show{opacity:1;pointer-events:auto}
 .v-top,.v-bot{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(20,20,20,.9)}
 .v-top button,.v-bot button{background:none;border:none;color:#fff;font:inherit;cursor:pointer;padding:6px}
+.v-bot{padding:8px 6px 22px !important}.v-bot button{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}.vlab{font-size:10.5px;font-weight:700;opacity:.9}.vtext{background:rgba(242,103,138,.28) !important;border-radius:14px}
 .v-top button{color:var(--accent);font-weight:700}
 .v-img{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:pan-y}
 .v-img img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .2s}
@@ -207,11 +208,11 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 1px}
       <div class="v-memo" id="v-memo"></div>
     </div>
     <div class="v-bot">
-      <button onclick="sharePhotos([curPhoto()])" aria-label="共有"><span class="ms">ios_share</span></button>
-      <button onclick="openText()" aria-label="文字を読み取る"><span class="ms" id="v-text-ic">document_scanner</span></button>
-      <button onclick="openMemo()" aria-label="メモ"><span class="ms" id="v-memo-ic">chat_bubble</span></button>
-      <button onclick="openMove('viewer')" aria-label="移動"><span class="ms">folder</span></button>
-      <button onclick="viewerMenu()" aria-label="削除など"><span class="ms">delete</span></button>
+      <button onclick="sharePhotos([curPhoto()])"><span class="ms">ios_share</span><span class="vlab">保存・共有</span></button>
+      <button onclick="openText()" class="vtext"><span class="ms" id="v-text-ic">document_scanner</span><span class="vlab">文字・要点</span></button>
+      <button onclick="openMemo()"><span class="ms" id="v-memo-ic">chat_bubble</span><span class="vlab">メモ</span></button>
+      <button onclick="openMove('viewer')"><span class="ms">folder</span><span class="vlab">移動</span></button>
+      <button onclick="viewerMenu()"><span class="ms">more_horiz</span><span class="vlab">その他</span></button>
     </div>
   </div>
 
