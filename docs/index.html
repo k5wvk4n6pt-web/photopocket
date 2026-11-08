@@ -184,6 +184,7 @@ html.dark .stat .sic{filter:brightness(.8)}
 .hit img{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0}
 mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 1px}
 .ocrtext{width:100%;box-sizing:border-box;min-height:220px;border:none;background:var(--card);border-radius:14px;padding:14px;font:inherit;font-size:15px;line-height:1.7;color:var(--text);resize:vertical;outline:none}
+.kchip{display:inline-block;border:none;background:var(--accent-soft);color:var(--text);font:inherit;font-size:13.5px;font-weight:700;border-radius:8px;padding:4px 9px;margin:3px 6px 3px 0;cursor:pointer;text-align:left;max-width:100%;word-break:break-all}
 </style>
 </head>
 <body>
@@ -593,7 +594,7 @@ async function openText(){const p=curPhoto();if(!p)return;
   catch(e){OCR.onProgress=null;toast("文字を読み取れませんでした。通信できる場所でもう一度お試しください")}}
 function showTextSheet(p){
   openSheet(`<div class="sheet-head"><button class="textbtn" onclick="closeSheet()">閉じる</button><b>写真の文字</b><button class="textbtn" onclick="saveText()">保存</button></div>
-  <div style="padding:0 16px">${p.text?"":`<div class="sub" style="margin-bottom:10px">文字が見つかりませんでした。手書きや小さい文字は読み取りにくいことがあります。</div>`}
+  <div style="padding:0 16px">${keyInfoHTML(p.text)}${p.text?"":`<div class="sub" style="margin-bottom:10px">文字が見つかりませんでした。手書きや小さい文字は読み取りにくいことがあります。</div>`}
   <textarea id="ocr-in" class="ocrtext" placeholder="読み取った文字がここに入ります。直接書き直すこともできます。">${esc(p.text||"")}</textarea>
   <div style="display:flex;gap:10px;margin-top:12px"><button class="bigbtn" style="flex:1;justify-content:center;padding:13px" onclick="copyText()"><span class="ms">content_copy</span>コピー</button><button class="addchip" style="background:var(--card);color:var(--text);box-shadow:none;border:1px solid var(--line);padding:0 16px" onclick="rereadText()"><span class="ms">refresh</span>読み直す</button></div>
   <div class="sub" style="font-size:12px;margin-top:10px;line-height:1.6">読み取った文字は「すべての写真」の検索で探せます。</div></div>`)}
@@ -604,6 +605,24 @@ async function ocrAll(){const list=S.photos.filter(p=>!p.textDone);if(!list.leng
   try{for(let i=0;i<list.length;i++){toast(`文字を読み取っています… ${i+1}/${list.length}`);await recognize(list[i],msg=>toast(msg))}
     toast(`${list.length}枚の文字を読み取りました`)}catch(e){toast("途中で読み取れなくなりました。もう一度お試しください")}
   render()}
+
+/* ---------- 要点の抜き出し ---------- */
+function keyInfo(text){const t=text||"";const uniq=a=>[...new Set(a.map(x=>x.trim()).filter(Boolean))];
+  const m=re=>uniq(t.match(re)||[]);
+  const dates=m(/(?:令和|平成)?\d{1,4}年\s*\d{1,2}月\s*\d{1,2}日(?:\s*[（(][月火水木金土日](?:曜日?)?[)）])?|\d{1,2}月\s*\d{1,2}日(?:\s*[（(][月火水木金土日](?:曜日?)?[)）])?|\b\d{1,2}\/\d{1,2}(?:\s*[（(][月火水木金土日][)）])?/g);
+  const times=m(/(?:午前|午後)?\s*\d{1,2}[:：]\d{2}(?:\s*[〜~～-]\s*\d{1,2}[:：]\d{2})?|(?:午前|午後)\d{1,2}時(?:\d{1,2}分)?/g);
+  const money=m(/[¥￥]\s?\d{1,3}(?:[,，]\d{3})+|[¥￥]\s?\d+|\d{1,3}(?:[,，]\d{3})+\s?円|\d+\s?円/g);
+  const phones=m(/0\d{1,4}[-－‐ー(（]\d{1,4}[-－‐ー)）]\d{3,4}|0[5789]0\d{8}|\b0\d{9}\b/g);
+  const urls=m(/https?:\/\/[^\s　]+|www\.[^\s　]+/g);
+  const mails=m(/[\w.+-]+@[\w-]+\.[\w.]+/g);
+  const addrs=uniq(t.split("\n").filter(l=>/(都|道|府|県).{1,8}(市|区|町|村)|[市区町村].{0,12}\d+[-－‐丁]/.test(l)).map(l=>l.slice(0,40))).slice(0,3);
+  const deadlines=uniq(t.split("\n").filter(l=>/まで|締切|締め切り|〆切|期限|提出|持ち物|持参/.test(l)).map(l=>l.slice(0,50))).slice(0,5);
+  return [["event_upcoming","期限・大事な行",deadlines],["calendar_month","日付",dates],["schedule","時間",times],["payments","金額",money],["call","電話番号",phones],["location_on","住所",addrs],["link","URL",urls],["mail","メール",mails]].filter(x=>x[2].length)}
+function keyInfoHTML(text){const k=keyInfo(text);if(!k.length)return"";
+  return `<div class="card" style="padding:14px;margin-bottom:12px"><div style="font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:6px"><span class="ms" style="color:var(--accent)">auto_awesome</span>要点</div>`+
+  k.map(([ic,label,items])=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line)"><span class="ms" style="color:var(--sub);font-size:20px;margin-top:2px">${ic}</span><div style="flex:1;min-width:0"><div class="sub" style="font-size:11.5px">${label}</div>${items.map(x=>`<button class="kchip" onclick="copyPlain(this.textContent)">${esc(x)}</button>`).join("")}</div></div>`).join("")+
+  `<div class="sub" style="font-size:11px;margin-top:6px">タップでコピーできます</div></div>`}
+async function copyPlain(t){try{await navigator.clipboard.writeText(t);toast("コピーしました："+t.slice(0,20))}catch(e){toast("コピーできませんでした")}}
 
 /* ---------- バックアップ ---------- */
 async function makeBackup(){

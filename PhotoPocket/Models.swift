@@ -94,6 +94,8 @@ final class PhotoItem {
     var recognizedText: String = ""
     /// 文字の読み取りを済ませたか
     var textRecognized: Bool = false
+    /// AIによる要約
+    var summary: String = ""
     /// 取り込み元の写真アプリ上のID（端末ごとに違うIDなので、取り込んだ端末でのみ使う）
     var sourceAssetID: String?
     /// 取り込んだ端末の識別子

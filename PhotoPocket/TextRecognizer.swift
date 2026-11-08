@@ -39,10 +39,47 @@ struct RecognizedTextSheet: View {
     @State private var text = ""
     @State private var working = false
     @State private var copied = false
+    @State private var summarizing = false
+    @State private var summary = ""
+    @State private var summaryError: String?
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                if Summarizer.isAvailable && !text.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label("AIのまとめ", systemImage: "apple.intelligence")
+                                .font(.subheadline.weight(.heavy))
+                            Spacer()
+                            Button {
+                                Task { await makeSummary() }
+                            } label: {
+                                if summarizing { ProgressView() } else {
+                                    Text(summary.isEmpty ? "要約する" : "作り直す").font(.subheadline.bold())
+                                }
+                            }
+                            .disabled(summarizing)
+                        }
+                        if !summary.isEmpty {
+                            Text(summary)
+                                .font(.callout)
+                                .textSelection(.enabled)
+                        } else if let summaryError {
+                            Text(summaryError).font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text("Apple Intelligenceで、内容を短くまとめます（iPhoneの中だけで処理します）")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(corner: 16)
+                }
+
+                KeyInfoCard(text: text)
+
                 if working {
                     HStack(spacing: 10) {
                         ProgressView()
@@ -86,7 +123,7 @@ struct RecognizedTextSheet: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .frame(maxHeight: .infinity, alignment: .top)
+            }
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("写真の文字")
             .navigationBarTitleDisplayMode(.inline)
@@ -103,9 +140,23 @@ struct RecognizedTextSheet: View {
             }
             .task {
                 text = item.recognizedText
+                summary = item.summary
                 if !item.textRecognized { await read() }
             }
         }
+    }
+
+    private func makeSummary() async {
+        summarizing = true
+        summaryError = nil
+        do {
+            summary = try await Summarizer.summarize(text)
+            item.summary = summary
+            try? context.save()
+        } catch {
+            summaryError = "要約できませんでした。しばらくしてからもう一度お試しください。"
+        }
+        summarizing = false
     }
 
     private func read() async {
