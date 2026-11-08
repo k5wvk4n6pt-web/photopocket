@@ -49,6 +49,28 @@ enum PhotoStorage {
         return url
     }
 
+    struct Rotated: Sendable {
+        let image: Data
+        let thumb: Data?
+    }
+
+    /// 右に90度回転した画像を作る（JPEGで保存し直す）
+    static func rotated(data: Data) -> Rotated? {
+        guard let src = displayImage(data: data, maxPixel: 6000) else { return nil }
+        let size = CGSize(width: src.size.height, height: src.size.width)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            let c = ctx.cgContext
+            c.translateBy(x: size.width / 2, y: size.height / 2)
+            c.rotate(by: .pi / 2)
+            src.draw(in: CGRect(x: -src.size.width / 2, y: -src.size.height / 2,
+                                width: src.size.width, height: src.size.height))
+        }
+        guard let jpg = image.jpegData(compressionQuality: 0.92) else { return nil }
+        return Rotated(image: jpg, thumb: prepare(data: jpg).thumbData)
+    }
+
     // MARK: - private
 
     private static func downsample(source: CGImageSource, maxPixel: Int) -> UIImage? {

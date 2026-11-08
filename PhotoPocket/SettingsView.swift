@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("deletePolicy") private var deletePolicyRaw = DeletePolicy.ask.rawValue
     @AppStorage("appearance") private var appearanceRaw = AppearanceMode.light.rawValue
+    @AppStorage("reviewAfterImport") private var reviewAfterImport = true
     @Query private var photos: [PhotoItem]
     @State private var iCloudText = "確認中…"
     @State private var iCloudOK = false
@@ -59,6 +60,7 @@ struct SettingsView: View {
                             Text(p.label).tag(p.rawValue)
                         }
                     }
+                    Toggle("取り込んだあと写真を確認する", isOn: $reviewAfterImport)
                 } header: {
                     Text("取り込み")
                 } footer: {

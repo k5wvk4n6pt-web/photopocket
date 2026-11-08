@@ -79,6 +79,9 @@ struct PhotoViewer: View {
                             Image(systemName: current.memo.isEmpty ? "text.bubble" : "text.bubble.fill")
                         }
                         Spacer()
+                        Button { rotate(current) } label: { Image(systemName: "rotate.right") }
+                            .accessibilityLabel("右に回転")
+                        Spacer()
                         Button { showMove = true } label: { Image(systemName: "folder") }
                         Spacer()
                         Menu {
@@ -151,6 +154,21 @@ struct PhotoViewer: View {
         return "\(current.displayDate.formatted(date: .abbreviated, time: .shortened))  \(index)/\(photos.count)"
     }
 
+    /// 写真を右に90度回転して保存する
+    private func rotate(_ item: PhotoItem) {
+        guard let data = item.imageData else { return }
+        Task {
+            let result = await Task.detached { PhotoStorage.rotated(data: data) }.value
+            guard let result else { return }
+            item.imageData = result.image
+            item.thumbData = result.thumb
+            item.fileExtension = "jpg"
+            item.byteSize = result.image.count
+            ThumbnailCache.shared.remove(item.id.uuidString)
+            try? context.save()
+        }
+    }
+
     private func neighborID(of id: UUID) -> UUID? {
         guard let i = photos.firstIndex(where: { $0.id == id }) else { return nil }
         if i + 1 < photos.count { return photos[i + 1].id }
@@ -212,7 +230,7 @@ struct FullImagePage: View {
                     .padding(.horizontal)
             }
         }
-        .task(id: item.id) {
+        .task(id: "\(item.id.uuidString)-\(item.byteSize)") {
             let data = item.imageData
             image = await Task.detached { PhotoStorage.displayImage(data: data) }.value
         }

@@ -7,6 +7,8 @@ struct FolderView: View {
     @Bindable var folder: PhotoFolder
     @Environment(\.modelContext) private var context
     @AppStorage("deletePolicy") private var deletePolicyRaw = DeletePolicy.ask.rawValue
+    @AppStorage("reviewAfterImport") private var reviewAfterImport = true
+    @State private var reviewFirst: PhotoItem?
     @StateObject private var importer = PhotoImporter()
 
     @State private var showPicker = false
@@ -92,9 +94,9 @@ struct FolderView: View {
         ) {
             Button("写真アプリから削除する", role: .destructive) {
                 let items = justImported
-                Task { await deleteFromLibrary(items) }
+                Task { await deleteFromLibrary(items); await review() }
             }
-            Button("写真アプリに残す") { justImported = [] }
+            Button("写真アプリに残す") { justImported = []; Task { await review() } }
         } message: {
             Text(importMessage)
         }
@@ -281,9 +283,11 @@ struct FolderView: View {
         failedCount = result.failed
         let deletable = result.importedItems.filter { $0.sourceAssetID != nil }
         justImported = deletable
+        reviewFirst = result.importedItems.first
 
         if deletable.isEmpty {
             if result.failed > 0 { alertMessage = "\(result.failed)枚は取り込めませんでした。" }
+            await review()
             return
         }
         switch policy {
@@ -291,9 +295,19 @@ struct FolderView: View {
             askLibraryDelete = true
         case .delete:
             await deleteFromLibrary(deletable)
+            await review()
         case .keep:
             if result.failed > 0 { alertMessage = "\(result.failed)枚は取り込めませんでした。" }
+            await review()
         }
+    }
+
+    /// 取り込んだ写真をすぐ開いて、回転や文字の確認ができるようにする
+    private func review() async {
+        guard reviewAfterImport, let first = reviewFirst, alertMessage == nil else { return }
+        reviewFirst = nil
+        try? await Task.sleep(nanoseconds: 450_000_000)
+        viewerItem = first
     }
 
     private func deleteFromLibrary(_ items: [PhotoItem]) async {
@@ -387,7 +401,7 @@ struct ThumbnailCell: View {
                         .padding(6)
                 }
             }
-            .task(id: item.id) {
+            .task(id: "\(item.id.uuidString)-\(item.byteSize)") {
                 let id = item.id
                 let data = item.thumbData
                 image = await Task.detached { PhotoStorage.thumbnail(id: id, data: data) }.value
