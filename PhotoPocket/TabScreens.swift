@@ -3,8 +3,20 @@ import SwiftData
 
 /// すべての写真（月ごと）
 struct AllPhotosView: View {
+    @Environment(\.modelContext) private var context
     @Query private var photos: [PhotoItem]
     @State private var viewerItem: PhotoItem?
+    @State private var query = ""
+    @State private var ocrProgress: (done: Int, total: Int)?
+
+    private var unreadCount: Int { photos.filter { !$0.textRecognized }.count }
+
+    private var searchResults: [PhotoItem] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        return photos
+            .filter { ($0.recognizedText + "\n" + $0.memo).localizedCaseInsensitiveContains(q) }
+            .sorted { $0.displayDate > $1.displayDate }
+    }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
 
@@ -36,7 +48,59 @@ struct AllPhotosView: View {
             if photos.isEmpty {
                 FriendlyEmptyView(symbol: "photo.on.rectangle", title: "写真はまだありません",
                                   message: "ホームから分類とフォルダを開いて、写真を取り込みましょう。") { EmptyView() }
+            } else if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    Text("「\(query)」が見つかった写真：\(searchResults.count)枚")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    ForEach(searchResults) { item in
+                        Button { viewerItem = item } label: {
+                            HStack(spacing: 12) {
+                                ThumbnailCell(item: item, selecting: false, isSelected: false)
+                                    .frame(width: 64, height: 64)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.folder?.name ?? "")
+                                        .font(.subheadline.weight(.heavy))
+                                    Text(snippet(of: item))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(10)
+                            .card(corner: 16)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if searchResults.isEmpty {
+                        Text("見つかりませんでした。文字を読み取っていない写真は検索に出ません。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 30)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 20)
             } else {
+                if unreadCount > 0 {
+                    Button { Task { await readAll() } } label: {
+                        Label("まだ文字を読み取っていない写真 \(unreadCount)枚をまとめて読み取る", systemImage: "text.viewfinder")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(maxWidth: .infinity)
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color.brown.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(ocrProgress != nil)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+                }
                 LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
                     ForEach(groups) { group in
                         Section {
@@ -62,7 +126,35 @@ struct AllPhotosView: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .navigationTitle("すべての写真")
+        .searchable(text: $query, prompt: "写真の中の文字・メモで探す")
+        .overlay {
+            if let p = ocrProgress {
+                ProgressOverlay(text: "文字を読み取っています… \(p.done)/\(p.total)")
+            }
+        }
         .photoViewerCover($viewerItem)
+    }
+
+    private func snippet(of item: PhotoItem) -> String {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        for source in [item.recognizedText, item.memo] {
+            if let r = source.range(of: q, options: .caseInsensitive) {
+                let start = source.index(r.lowerBound, offsetBy: -12, limitedBy: source.startIndex) ?? source.startIndex
+                let end = source.index(r.upperBound, offsetBy: 24, limitedBy: source.endIndex) ?? source.endIndex
+                return (start > source.startIndex ? "…" : "") + source[start..<end].replacingOccurrences(of: "\n", with: " ") + "…"
+            }
+        }
+        return ""
+    }
+
+    private func readAll() async {
+        let list = photos.filter { !$0.textRecognized }
+        ocrProgress = (0, list.count)
+        for (i, item) in list.enumerated() {
+            await TextRecognizer.run(on: item, context: context)
+            ocrProgress = (i + 1, list.count)
+        }
+        ocrProgress = nil
     }
 }
 

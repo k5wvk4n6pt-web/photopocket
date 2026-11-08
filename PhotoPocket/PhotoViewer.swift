@@ -16,6 +16,7 @@ struct PhotoViewer: View {
     @State private var memoText = ""
     @State private var alertMessage: String?
     @State private var shareURL: URL?
+    @State private var showText = false
 
     init(folder: PhotoFolder, startID: UUID) {
         self.folder = folder
@@ -66,6 +67,11 @@ struct PhotoViewer: View {
                             Image(systemName: "square.and.arrow.up").foregroundStyle(.secondary)
                         }
                         Spacer()
+                        Button { showText = true } label: {
+                            Image(systemName: "text.viewfinder")
+                        }
+                        .accessibilityLabel("写真の文字を読み取る")
+                        Spacer()
                         Button {
                             memoText = current.memo
                             editingMemo = true
@@ -94,6 +100,9 @@ struct PhotoViewer: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showText) {
+                if let current { RecognizedTextSheet(item: current) }
             }
             .alert("メモ", isPresented: $editingMemo) {
                 TextField("メモを入力", text: $memoText)

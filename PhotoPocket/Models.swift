@@ -90,6 +90,10 @@ final class PhotoItem {
     var takenAt: Date?
     var importedAt: Date = Date()
     var memo: String = ""
+    /// 写真から読み取った文字（OCR）
+    var recognizedText: String = ""
+    /// 文字の読み取りを済ませたか
+    var textRecognized: Bool = false
     /// 取り込み元の写真アプリ上のID（端末ごとに違うIDなので、取り込んだ端末でのみ使う）
     var sourceAssetID: String?
     /// 取り込んだ端末の識別子

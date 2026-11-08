@@ -176,6 +176,14 @@ html.dark .greet{background:#3b2228}html.dark .icl{background:#1d2a3a}
 .stat b{font-size:19px;font-weight:800;margin-top:2px}
 .stat>span:last-child{font-size:11.5px;color:var(--sub);margin-top:-4px}
 html.dark .stat .sic{filter:brightness(.8)}
+.searchbox{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:14px;padding:0 12px;box-shadow:0 3px 10px rgba(91,58,33,.05);margin-bottom:10px}
+.searchbox .ms{color:var(--sub);font-size:22px}
+.searchbox input{flex:1;border:none;background:none;font:inherit;font-size:16px;color:var(--text);padding:13px 0;outline:none;min-width:0}
+.ocrall{width:100%;border:1px dashed #D9BFA6;background:none;border-radius:14px;padding:11px;font:inherit;font-size:13px;font-weight:700;color:var(--accent);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;margin-bottom:6px}
+.hit{display:flex;gap:12px;align-items:center;padding:10px;margin-bottom:10px;cursor:pointer}
+.hit img{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0}
+mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 1px}
+.ocrtext{width:100%;box-sizing:border-box;min-height:220px;border:none;background:var(--card);border-radius:14px;padding:14px;font:inherit;font-size:15px;line-height:1.7;color:var(--text);resize:vertical;outline:none}
 </style>
 </head>
 <body>
@@ -199,6 +207,7 @@ html.dark .stat .sic{filter:brightness(.8)}
     </div>
     <div class="v-bot">
       <button onclick="sharePhotos([curPhoto()])" aria-label="共有"><span class="ms">ios_share</span></button>
+      <button onclick="openText()" aria-label="文字を読み取る"><span class="ms" id="v-text-ic">document_scanner</span></button>
       <button onclick="openMemo()" aria-label="メモ"><span class="ms" id="v-memo-ic">chat_bubble</span></button>
       <button onclick="openMove('viewer')" aria-label="移動"><span class="ms">folder</span></button>
       <button onclick="viewerMenu()" aria-label="削除など"><span class="ms">delete</span></button>
@@ -330,11 +339,22 @@ function renderTabbar(){const tabs=[["home","home","ホーム"],["all","image","
 function switchTab(k){S.tab=k;S.selecting=false;S.selected.clear();if(S.cur){$("#folder").classList.add("off");S.cur=null}$("#cat").classList.remove("under");if(S.curCat){$("#cat").classList.add("off");S.curCat=null}$("#home").classList.remove("under");$("#home").scrollTop=0;render()}
 function photoGrid(ps,clickFn){return `<div class="grid3">`+ps.map(p=>`<div class="th" onclick="${clickFn}('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}${p.memo?`<span class="memo"><span class="ms">chat_bubble</span></span>`:""}</div>`).join("")+`</div>`}
 function openFromAnywhere(pid){const p=S.photos.find(x=>x.id===pid);if(!p)return;S.viewFolder=p.folderId;openViewer(pid)}
+function snippet(t,q){const i=t.toLowerCase().indexOf(q.toLowerCase());if(i<0)return"";const a=Math.max(0,i-12);return(a?"…":"")+esc(t.slice(a,i))+`<mark>${esc(t.slice(i,i+q.length))}</mark>`+esc(t.slice(i+q.length,i+q.length+18))+"…"}
+function renderAllResults(){const box=$("#allResults");if(!box)return;const q=(S.q||"").trim();
+  let ps=[...S.photos].sort((a,b)=>b.date-a.date);let h="";
+  if(!S.photos.length){box.innerHTML=`<div class="empty"><div class="halo"><div><span class="ms">image</span></div></div><h3>写真はまだありません</h3><p>分類やフォルダを開いて取り込みましょう。</p></div>`;return}
+  if(q){ps=ps.filter(p=>((p.text||"")+"\n"+(p.memo||"")).toLowerCase().includes(q.toLowerCase()));
+    h=`<div class="sub" style="margin:4px 4px 10px">「${esc(q)}」が見つかった写真：${ps.length}枚</div>`;
+    h+=ps.map(p=>`<div class="card hit" onclick="openFromAnywhere('${p.id}')"><img src="${p.src}" alt=""><div style="min-width:0;flex:1"><div style="font-weight:800;font-size:13px">${esc(folderLabel(folderById(p.folderId)))}</div><div class="sub" style="font-size:12px;line-height:1.5">${snippet(p.text||"",q)||snippet(p.memo||"",q)}</div></div></div>`).join("");
+    if(!ps.length)h+=`<div class="sub" style="text-align:center;padding:30px 0">見つかりませんでした。<br>文字を読み取っていない写真は検索に出ません。</div>`;
+    box.innerHTML=h;return}
+  let last="";ps.forEach(p=>{const d=new Date(p.date);const k=`${d.getFullYear()}年${d.getMonth()+1}月`;if(k!==last){if(last)h+=`</div>`;h+=`<div class="dayh">${k}</div><div class="grid3">`;last=k}h+=`<div class="th" onclick="openFromAnywhere('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}${p.text?`<span class="memo"><span class="ms">notes</span></span>`:""}</div>`});h+=`</div>`;
+  box.innerHTML=h}
 function renderTabRoot(){const el=$("#home");let h="";
-  if(S.tab==="all"){const ps=[...S.photos].sort((a,b)=>b.date-a.date);h=`<div class="root-title">すべての写真</div><div class="wrap">`;
-    if(!ps.length)h+=`<div class="empty"><div class="halo"><div><span class="ms">image</span></div></div><h3>写真はまだありません</h3><p>フォルダを開いて取り込みましょう。</p></div>`;
-    else{let last="";ps.forEach(p=>{const d=new Date(p.date);const k=`${d.getFullYear()}年${d.getMonth()+1}月`;if(k!==last){if(last)h+=`</div>`;h+=`<div class="dayh">${k}</div><div class="grid3">`;last=k}h+=`<div class="th" onclick="openFromAnywhere('${p.id}')"><img src="${p.src}" alt="">${p.inLib?`<span class="lib"><span class="ms">smartphone</span></span>`:""}</div>`});h+=`</div>`}
-    h+=`</div>`}
+  if(S.tab==="all"){const unread=S.photos.filter(p=>!p.textDone).length;h=`<div class="root-title">すべての写真</div><div class="wrap">`;
+    if(S.photos.length){h+=`<div class="searchbox"><span class="ms">search</span><input id="q" type="search" placeholder="写真の中の文字・メモで探す" value="${esc(S.q||"")}" oninput="S.q=this.value;renderAllResults()"></div>`;
+      if(unread)h+=`<button class="ocrall" onclick="ocrAll()"><span class="ms">document_scanner</span>まだ文字を読み取っていない写真 ${unread}枚をまとめて読み取る</button>`}
+    h+=`<div id="allResults"></div></div>`;el.innerHTML=h;renderAllResults();return}
   if(S.tab==="folders"){h=`<div class="root-title">フォルダ</div>`;
     const groups=S.cats.map(c=>[c,realFolders().filter(f=>f.catId===c.id)]);const none=realFolders().filter(f=>!catById(f.catId));
     groups.forEach(([c,fs])=>{const ib=inboxOf(c.id,false);const dn=ib?folderPhotos(ib.id).length:0;h+=`<div class="list-h">${esc(c.name)}</div><div class="list flist">`+(dn?`<button class="li" onclick="switchTab('home');openCategory('${c.id}')"><span class="ms" style="color:${catColor(c)}">${c.icon}</span><span style="flex:1">${esc(c.name)}（直接）</span><span class="sub">${dn}枚</span><span class="ms" style="color:var(--sub)">chevron_right</span></button>`:"")+(fs.length?fs.map(f=>`<button class="li" onclick="openFolder('${f.id}')"><span class="ms" style="color:${COLORS[f.color]}">folder</span><span style="flex:1">${esc(f.name)}</span><span class="sub">${folderPhotos(f.id).length}枚</span><span class="ms" style="color:var(--sub)">chevron_right</span></button>`).join(""):`<button class="li" onclick="openFolderEditor(null,'${c.id}')" style="color:var(--accent)"><span class="ms">add</span>フォルダを追加</button>`)+`</div>`});
@@ -408,7 +428,7 @@ function curPhoto(){return folderPhotos(S.viewFolder)[S.vIndex]}
 function stepViewer(d){const n=folderPhotos(S.viewFolder).length;S.vIndex=(S.vIndex+d+n)%n;renderViewer()}
 function renderViewer(){const ps=folderPhotos(S.viewFolder);const p=ps[S.vIndex];if(!p){closeViewer();return}
   $("#v-pic").src=p.src;const d=new Date(p.date);$("#v-title").textContent=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}  ${S.vIndex+1}/${ps.length}`;
-  $("#v-lib").textContent=p.inLib?"smartphone":"";$("#v-memo").innerHTML=p.memo?`<span>${esc(p.memo)}</span>`:"";$("#v-memo-ic").textContent=p.memo?"chat":"chat_bubble";
+  $("#v-lib").textContent=p.inLib?"smartphone":"";$("#v-memo").innerHTML=p.memo?`<span>${esc(p.memo)}</span>`:"";$("#v-memo-ic").textContent=p.memo?"chat":"chat_bubble";$("#v-text-ic").style.color=p.text?"#7CC7FF":"";
   document.querySelectorAll(".v-arrow").forEach(b=>b.style.display=ps.length>1?"flex":"none")}
 (()=>{let x0=null;const el=$("#v-img");el.addEventListener("touchstart",e=>x0=e.touches[0].clientX,{passive:true});el.addEventListener("touchend",e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>50)stepViewer(dx<0?1:-1);x0=null});
   let zoom=false;el.addEventListener("dblclick",()=>{zoom=!zoom;$("#v-pic").style.transform=zoom?"scale(2.2)":"none"})})();
@@ -553,6 +573,38 @@ async function sharePhotos(list){
     if(navigator.canShare&&navigator.canShare({files})){await navigator.share({files});return}
     toast("このブラウザでは保存できません。写真を長押しして保存してください")
   }catch(e){if(e&&e.name==="AbortError")return;toast("保存をキャンセルしました")}}
+/* ---------- 文字の読み取り（OCR） ---------- */
+const OCR={worker:null,loading:null};
+function loadScript(src){return new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=src;sc.onload=res;sc.onerror=rej;document.head.appendChild(sc)})}
+async function ocrWorker(onStatus){
+  if(OCR.worker)return OCR.worker;
+  if(!OCR.loading)OCR.loading=(async()=>{
+    if(!window.Tesseract){onStatus&&onStatus("読み取りの準備をしています…");await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js")}
+    onStatus&&onStatus("日本語のデータを読み込んでいます…（初回だけ少し時間がかかります）");
+    const w=await Tesseract.createWorker(["jpn","eng"],1,{logger:m=>{if(OCR.onProgress&&m.status==="recognizing text")OCR.onProgress(m.progress)}});
+    OCR.worker=w;return w})();
+  try{return await OCR.loading}catch(e){OCR.loading=null;throw e}}
+function cleanText(t){return (t||"").replace(/([　-ヿ㐀-鿿＀-￯])[ \t]+(?=[　-ヿ㐀-鿿＀-￯])/g,"$1").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim()}
+async function recognize(p,onStatus){const w=await ocrWorker(onStatus);const r=await w.recognize(p.src);p.text=cleanText(r.data.text);p.textDone=true;scheduleSave();return p.text}
+async function openText(){const p=curPhoto();if(!p)return;
+  if(p.textDone){showTextSheet(p);return}
+  try{toast("文字を読み取っています…");OCR.onProgress=pr=>toast(`文字を読み取っています… ${Math.round(pr*100)}%`);
+    await recognize(p,msg=>toast(msg));OCR.onProgress=null;toast(p.text?"文字を読み取りました":"文字が見つかりませんでした");renderViewer();showTextSheet(p)}
+  catch(e){OCR.onProgress=null;toast("文字を読み取れませんでした。通信できる場所でもう一度お試しください")}}
+function showTextSheet(p){
+  openSheet(`<div class="sheet-head"><button class="textbtn" onclick="closeSheet()">閉じる</button><b>写真の文字</b><button class="textbtn" onclick="saveText()">保存</button></div>
+  <div style="padding:0 16px">${p.text?"":`<div class="sub" style="margin-bottom:10px">文字が見つかりませんでした。手書きや小さい文字は読み取りにくいことがあります。</div>`}
+  <textarea id="ocr-in" class="ocrtext" placeholder="読み取った文字がここに入ります。直接書き直すこともできます。">${esc(p.text||"")}</textarea>
+  <div style="display:flex;gap:10px;margin-top:12px"><button class="bigbtn" style="flex:1;justify-content:center;padding:13px" onclick="copyText()"><span class="ms">content_copy</span>コピー</button><button class="addchip" style="background:var(--card);color:var(--text);box-shadow:none;border:1px solid var(--line);padding:0 16px" onclick="rereadText()"><span class="ms">refresh</span>読み直す</button></div>
+  <div class="sub" style="font-size:12px;margin-top:10px;line-height:1.6">読み取った文字は「すべての写真」の検索で探せます。</div></div>`)}
+function saveText(){const p=curPhoto();if(!p)return;p.text=$("#ocr-in").value.trim();p.textDone=true;scheduleSave();closeSheet();renderViewer();toast("保存しました")}
+async function copyText(){const t=$("#ocr-in").value;try{await navigator.clipboard.writeText(t);toast("コピーしました")}catch(e){$("#ocr-in").select();toast("文字を選んでコピーしてください")}}
+async function rereadText(){const p=curPhoto();closeSheet();p.textDone=false;await openText()}
+async function ocrAll(){const list=S.photos.filter(p=>!p.textDone);if(!list.length)return;
+  try{for(let i=0;i<list.length;i++){toast(`文字を読み取っています… ${i+1}/${list.length}`);await recognize(list[i],msg=>toast(msg))}
+    toast(`${list.length}枚の文字を読み取りました`)}catch(e){toast("途中で読み取れなくなりました。もう一度お試しください")}
+  render()}
+
 /* ---------- バックアップ ---------- */
 async function makeBackup(){
   if(!S.photos.length&&!S.cats.length){toast("まだバックアップするデータがありません");return}
