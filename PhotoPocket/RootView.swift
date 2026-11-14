@@ -440,6 +440,9 @@ struct CategoryView: View {
 private struct DeleteFolderDialog: ViewModifier {
     @Binding var folder: PhotoFolder?
     @Environment(\.modelContext) private var context
+    @Query private var allFolders: [PhotoFolder]
+    @State private var moveSource: PhotoFolder?
+    @State private var showDone: String?
 
     func body(content: Content) -> some View {
         content.confirmationDialog(
@@ -447,16 +450,47 @@ private struct DeleteFolderDialog: ViewModifier {
             isPresented: Binding(get: { folder != nil }, set: { if !$0 { folder = nil } }),
             titleVisibility: .visible
         ) {
-            Button("フォルダを削除", role: .destructive) {
-                if let f = folder {
-                    for photo in f.photoArray { ThumbnailCache.shared.remove(photo.id.uuidString) }
-                    context.delete(f)
-                    try? context.save()
+            if let f = folder {
+                if f.photoArray.isEmpty {
+                    Button("フォルダを削除", role: .destructive) { delete(f) }
+                } else {
+                    if allFolders.contains(where: { $0.id != f.id }) {
+                        Button("写真を別のフォルダに移してから削除") { moveSource = f }
+                    }
+                    Button("フォルダだけ削除", role: .destructive) { delete(f) }
                 }
             }
         } message: {
-            Text("中の写真\(folder?.photoArray.count ?? 0)枚はフォルダから外れますが、写真アプリの写真はそのまま残ります。")
+            if let f = folder, !f.photoArray.isEmpty {
+                let legacy = f.photoArray.filter { $0.isLegacyCopy && !$0.isStillInLibrary }.count
+                Text("中に写真が\(f.photoArray.count)枚あります。写真アプリの写真は消えません。フォルダ分けを残したいときは「別のフォルダに移してから削除」を選んでください。"
+                     + (legacy > 0 ? "\n※以前の版で取り込み、写真アプリから消した写真が\(legacy)枚あります。この写真は「フォルダだけ削除」を選ぶと見られなくなります。" : ""))
+            } else {
+                Text("このフォルダは空です。")
+            }
         }
+        .sheet(item: $moveSource) { source in
+            FolderChooser(excluding: source.id, title: "写真をどのフォルダに移しますか？") { dest in
+                let photos = source.photoArray
+                for p in photos { p.folder = dest }
+                try? context.save()
+                let name = source.name
+                context.delete(source)
+                try? context.save()
+                showDone = "\(photos.count)枚を「\(dest.name)」に移して、フォルダ「\(name)」を削除しました。"
+            }
+        }
+        .alert("完了", isPresented: Binding(get: { showDone != nil }, set: { if !$0 { showDone = nil } })) {
+            Button("OK") { showDone = nil }
+        } message: {
+            Text(showDone ?? "")
+        }
+    }
+
+    private func delete(_ f: PhotoFolder) {
+        for photo in f.photoArray { ThumbnailCache.shared.remove(photo.id.uuidString) }
+        context.delete(f)
+        try? context.save()
     }
 }
 

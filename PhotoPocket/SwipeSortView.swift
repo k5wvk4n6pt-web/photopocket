@@ -801,6 +801,8 @@ struct SwipeSortView: View {
 
 /// 仕分け先のフォルダを選ぶ
 struct FolderChooser: View {
+    var excluding: UUID? = nil
+    var title = "どのフォルダに入れますか？"
     let onSelect: (PhotoFolder) -> Void
     @Environment(\.dismiss) private var dismiss
     @Query(sort: [SortDescriptor(\PhotoCategory.sortOrder), SortDescriptor(\PhotoCategory.createdAt)])
@@ -812,20 +814,20 @@ struct FolderChooser: View {
         NavigationStack {
             List {
                 ForEach(categories) { c in
-                    if !c.folderArray.isEmpty {
+                    if c.folderArray.contains(where: { $0.id != excluding }) {
                         Section {
-                            ForEach(c.sortedFolders) { row($0) }
+                            ForEach(c.sortedFolders.filter { $0.id != excluding }) { row($0) }
                         } header: {
                             Label(c.name, systemImage: c.symbol).foregroundStyle(c.color)
                         }
                     }
                 }
-                let none = folders.filter { $0.category == nil }
+                let none = folders.filter { $0.category == nil && $0.id != excluding }
                 if !none.isEmpty {
                     Section("未分類") { ForEach(none) { row($0) } }
                 }
             }
-            .navigationTitle("どのフォルダに入れますか？")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("キャンセル") { dismiss() } }
