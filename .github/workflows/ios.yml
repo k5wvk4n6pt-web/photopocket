@@ -72,7 +72,8 @@ jobs:
           xcode-project build-ipa \
             --project PhotoPocket.xcodeproj \
             --scheme PhotoPocket \
-            --archive-xcargs "CLOUDKIT_ENV=${{ inputs.cloudkit_env }} APS_ENV=production CURRENT_PROJECT_VERSION=${{ github.run_number }}"
+            --archive-xcargs "CLOUDKIT_ENV=${{ inputs.cloudkit_env }} APS_ENV=production CURRENT_PROJECT_VERSION=${{ github.run_number }}" \
+            || { echo "---- xcodebuild のエラー ----"; grep -h -E "error:|warning: .*(entitlement|profile)" /tmp/xcodebuild_logs/*.log | sort -u | head -40; exit 1; }
       - name: Upload to TestFlight
         run: |
           IPA=$(find build/ios/ipa -name "*.ipa" | head -1)
