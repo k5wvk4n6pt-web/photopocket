@@ -23,11 +23,6 @@ struct SettingsView: View {
                     if store.isUnlocked {
                         Label("フル版を使っています", systemImage: "checkmark.seal.fill")
                             .foregroundStyle(Theme.accent)
-                        HStack {
-                            Image(systemName: iCloudOK ? "checkmark.icloud.fill" : "exclamationmark.icloud")
-                                .foregroundStyle(iCloudOK ? Color.green : Color.orange)
-                            Text(iCloudText)
-                        }
                     } else {
                         LabeledContent("フォルダ", value: "\(folders.count) / \(FreeLimit.folders)つ")
                         LabeledContent("フォルダの写真", value: "\(photos.count) / \(FreeLimit.photos)枚")
@@ -44,8 +39,8 @@ struct SettingsView: View {
                     Text(store.isUnlocked ? "フル版" : "無料版")
                 } footer: {
                     Text(store.isUnlocked
-                         ? "iCloudに同期するのは、フォルダ分けとメモだけです。同じApple IDのiPhone・iPadで同じフォルダ分けが見られ、アプリを入れ直しても戻ります。\n写真そのもののバックアップは、iPhoneの「設定」→ iCloud →「写真」（iCloud写真）で行われます。"
-                         : "無料版では、フォルダ\(FreeLimit.folders)つ・写真\(FreeLimit.photos)枚まで仕分けできます。フル版では、枚数・フォルダが無制限になり、iCloud同期・Face IDロック・文字の読み取りとAIのまとめが使えます。")
+                         ? "フォルダ・写真の枚数は無制限です。機種変更やアプリの入れ直しをしても、フォルダ分けとメモは戻ります。"
+                         : "無料版では、フォルダ\(FreeLimit.folders)つ・写真\(FreeLimit.photos)枚まで仕分けできます。フル版では、枚数・フォルダが無制限になり、Face IDロック・文字の読み取りとAIのまとめが使えます。機種変更しても、フォルダ分けが戻ります。")
                 }
 
                 Section {

@@ -33,8 +33,8 @@ struct UnlockView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         benefit("infinity", "フォルダも写真も無制限",
                                 "好きなだけフォルダを作って、何枚でも仕分けできます")
-                        benefit("arrow.triangle.2.circlepath.icloud", "フォルダ分けをiCloudに保存",
-                                "機種変更や入れ直しでも、フォルダ分けとメモが戻ります。iPhoneとiPadで同じフォルダ分けに（写真そのものはiCloud写真で保存されます）")
+                        benefit("iphone.and.arrow.forward", "機種変更しても安心",
+                                "新しいiPhoneやアプリの入れ直しでも、フォルダ分けとメモが戻ります")
                         benefit("faceid", "Face IDでロック",
                                 "アプリを開くときにFace IDが必要に。アプリ一覧でも中身が見えません")
                         benefit("text.viewfinder", "文字の読み取り・AIのまとめ",
