@@ -24,6 +24,13 @@ struct PhotoPocketApp: App {
                             .transition(.opacity)
                     }
                 }
+                .overlay {
+                    // ロックがオンのときは、アプリ一覧（切り替え画面）でも中身を隠す
+                    // （Face IDの確認中は隠さない）
+                    if appLock.isEnabled && scenePhase != .active && !appLock.isAuthenticating {
+                        PrivacyCoverView().fontDesign(.rounded)
+                    }
+                }
                 .animation(.easeInOut(duration: 0.2), value: appLock.isLocked)
                 .tint(Theme.accent)
                 .fontDesign(.rounded)

@@ -136,3 +136,18 @@ struct LockScreenView: View {
         }
     }
 }
+
+/// ロックがオンのとき、アプリ一覧（アプリの切り替え画面）で中身が見えないように隠す画面
+struct PrivacyCoverView: View {
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 44, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                Text("フォトポケット").font(.title3.bold())
+            }
+        }
+    }
+}
