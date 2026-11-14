@@ -21,16 +21,23 @@ struct SettingsView: View {
             Form {
                 Section {
                     if store.isUnlocked {
-                        Label("フル版を使っています", systemImage: "checkmark.seal.fill")
-                            .foregroundStyle(Theme.accent)
+                        Button { showUnlock = true } label: {
+                            HStack {
+                                Label(store.hasLifetime ? "フル版（買い切り）" : "フル版（年額プラン）",
+                                      systemImage: "checkmark.seal.fill")
+                                    .foregroundStyle(Theme.accent)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
+                            }
+                        }
                     } else {
                         LabeledContent("フォルダ", value: "\(folders.count) / \(FreeLimit.folders)つ")
                         LabeledContent("フォルダの写真", value: "\(photos.count) / \(FreeLimit.photos)枚")
                         Button { showUnlock = true } label: {
                             HStack {
-                                Label("フル版にする（買い切り）", systemImage: "sparkles")
+                                Label("フル版にする", systemImage: "sparkles")
                                 Spacer()
-                                Text(store.priceText).foregroundStyle(.secondary)
+                                Text("年額・買い切り").foregroundStyle(.secondary)
                             }
                         }
                         Button("購入を復元") { Task { await store.restore() } }
