@@ -1,6 +1,6 @@
 name: PhotoPocket
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: com.k5wvk4n6pt
   deploymentTarget:
     iOS: "17.0"
   developmentLanguage: ja
@@ -19,9 +19,9 @@ targets:
     settings:
       base:
         # ↓ App Store Connect で登録するバンドルIDに書き換えてください
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.photopocket
+        PRODUCT_BUNDLE_IDENTIFIER: com.k5wvk4n6pt.photopocket
         # ↓ iCloudコンテナID（"iCloud." + バンドルID が基本）
-        ICLOUD_CONTAINER: iCloud.com.example.photopocket
+        ICLOUD_CONTAINER: iCloud.com.k5wvk4n6pt.photopocket
         # iCloudの環境：最初の1回だけ Development、確認後は Production（README参照）
         CLOUDKIT_ENV: Production
         CODE_SIGN_STYLE: Automatic

@@ -5,7 +5,7 @@ import StoreKit
 @MainActor
 final class Store: ObservableObject {
     /// ↓ App Store Connect で作る「非消耗型」App内課金の製品ID
-    static let iCloudProductID = "com.example.photopocket.icloud"
+    static let iCloudProductID = "com.k5wvk4n6pt.photopocket.icloud"
 
     /// 起動時にすぐ判定できるよう、購入済みかどうかを端末にも覚えておく
     static let unlockedKey = "iCloudUnlocked"

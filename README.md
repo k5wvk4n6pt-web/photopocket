@@ -54,7 +54,7 @@ ExportOptions.plist         App Store Connect送信用の設定
 
 ## 買い切り課金（iCloud同期）の設定
 1. App Store Connect → このアプリ →「App内課金」→ ＋ →種類は **非消耗型**
-   - 製品ID：`com.example.photopocket.icloud`（`Store.swift` の `iCloudProductID` と同じにする。バンドルIDを変えたらこちらも合わせる）
+   - 製品ID：`com.k5wvk4n6pt.photopocket.icloud`（`Store.swift` の `iCloudProductID` と同じにする。バンドルIDを変えたらこちらも合わせる）
    - 価格・表示名（例：iCloud同期）・説明・審査用スクリーンショット（購入画面のスクショでOK）を入力
 2. 最初の審査では、アプリ本体と一緒にこのApp内課金も提出する（バージョンの画面の「App内課金」欄で選ぶ）
 3. 「契約/税金/口座情報」で有料アプリ契約が有効になっていること
