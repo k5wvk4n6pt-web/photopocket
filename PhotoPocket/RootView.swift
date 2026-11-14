@@ -159,6 +159,7 @@ struct HomeView: View {
     @State private var categoryToDelete: PhotoCategory?
     @State private var folderToDelete: PhotoFolder?
     @State private var showSorter = false
+    @State private var showReorder = false
 
     private var uncategorized: [PhotoFolder] { allFolders.filter { $0.category == nil } }
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -184,6 +185,18 @@ struct HomeView: View {
                             Text("分類").font(.title3.weight(.heavy))
                             Text("\(categories.count)こ").font(.subheadline).foregroundStyle(.secondary)
                             Spacer()
+                            if !categories.isEmpty {
+                                Button { showReorder = true } label: {
+                                    Label("編集・並び替え", systemImage: "arrow.up.arrow.down")
+                                        .font(.subheadline.weight(.heavy))
+                                        .foregroundStyle(Theme.ink)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 7)
+                                        .background(Theme.card, in: Capsule())
+                                        .overlay(Capsule().stroke(Color.brown.opacity(0.2)))
+                                }
+                                .buttonStyle(.plain)
+                            }
                             Button { editingCategory = .new } label: {
                                 Label("追加", systemImage: "plus")
                                     .font(.subheadline.weight(.heavy))
@@ -249,6 +262,7 @@ struct HomeView: View {
         .deleteCategoryDialog($categoryToDelete)
         .deleteFolderDialog($folderToDelete)
         .fullScreenCover(isPresented: $showSorter) { SwipeSortView() }
+        .sheet(isPresented: $showReorder) { CategoryReorderSheet() }
     }
 
     /// iPhoneの写真をスワイプで仕分ける入口
@@ -336,6 +350,7 @@ struct CategoryView: View {
     @State private var editingCategory: CategoryEditTarget?
     @State private var folderToDelete: PhotoFolder?
     @State private var categoryToDelete: PhotoCategory?
+    @State private var showFolderReorder = false
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -386,6 +401,8 @@ struct CategoryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { editingFolder = .new(category) } label: { Label("フォルダを追加", systemImage: "folder.badge.plus") }
+                    Button { showFolderReorder = true } label: { Label("フォルダの編集・並び替え", systemImage: "arrow.up.arrow.down") }
+                        .disabled(category.folderArray.count < 1)
                     Button { editingCategory = .edit(category) } label: { Label("分類を編集", systemImage: "pencil") }
                     Button(role: .destructive) { categoryToDelete = category } label: { Label("分類を削除", systemImage: "trash") }
                 } label: {
@@ -397,6 +414,7 @@ struct CategoryView: View {
         .sheet(item: $editingCategory) { CategoryEditor(target: $0) }
         .deleteFolderDialog($folderToDelete)
         .deleteCategoryDialog($categoryToDelete) { dismiss() }
+        .sheet(isPresented: $showFolderReorder) { FolderReorderSheet(category: category) }
     }
 }
 
