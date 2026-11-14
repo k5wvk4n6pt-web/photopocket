@@ -15,23 +15,9 @@ struct PhotoPocketApp: App {
         WindowGroup {
             RootView()
                 .id(containerIsCloud)   // 保存先を切り替えたら画面を作り直す
-                .overlay {
-                    // アプリのロック（フル版の機能）：ロック中は中身を隠して認証画面を出す
-                    if store.isUnlocked && appLock.isEnabled && appLock.isLocked {
-                        LockScreenView(lock: appLock)
-                            .tint(Theme.accent)
-                            .fontDesign(.rounded)
-                            .transition(.opacity)
-                    }
-                }
-                .overlay {
-                    // ロックがオンのときは、アプリ一覧（切り替え画面）でも中身を隠す
-                    // （Face IDの確認中は隠さない）
-                    if store.isUnlocked && appLock.isEnabled && scenePhase != .active && !appLock.isAuthenticating {
-                        PrivacyCoverView().fontDesign(.rounded)
-                    }
-                }
-                .animation(.easeInOut(duration: 0.2), value: appLock.isLocked)
+                // アプリのロック（フル版の機能）とアプリ一覧での目隠しは、別の窓（ウインドウ）で一番上に出す
+                // （写真を大きく見る画面などの全画面表示よりも上に出すため）
+                .onChange(of: lockOverlayKey) { _, _ in updateLockOverlay() }
                 .tint(Theme.accent)
                 .fontDesign(.rounded)
                 .preferredColorScheme((AppearanceMode(rawValue: appearanceRaw) ?? .light).colorScheme)
@@ -44,6 +30,7 @@ struct PhotoPocketApp: App {
                     VideoSync.shared.configure(container: container, cloud: unlocked)
                 }
                 .task {
+                    updateLockOverlay()
                     VideoSync.shared.configure(container: container, cloud: containerIsCloud)
                     // 起動したときにロック中なら、すぐ認証を出す
                     if store.isUnlocked && appLock.isEnabled && appLock.isLocked { await appLock.unlock() }
@@ -62,6 +49,22 @@ struct PhotoPocketApp: App {
                 }
         }
         .modelContainer(container)
+    }
+
+    /// ロック画面・目隠しを出すかどうかが変わったら更新するための目印
+    private var lockOverlayKey: String {
+        "\(store.isUnlocked)-\(appLock.isEnabled)-\(appLock.isLocked)-\(appLock.isAuthenticating)-\(scenePhase)-\(appearanceRaw)"
+    }
+
+    private func updateLockOverlay() {
+        let active = store.isUnlocked && appLock.isEnabled
+        LockOverlayWindow.shared.update(
+            showLock: active && appLock.isLocked,
+            // ロックがオンのときは、アプリ一覧（切り替え画面）でも中身を隠す（Face IDの確認中は隠さない）
+            showCover: active && scenePhase != .active && !appLock.isAuthenticating,
+            lock: appLock,
+            appearance: AppearanceMode(rawValue: appearanceRaw) ?? .light
+        )
     }
 
     /// 無料版：端末内のみ／購入後：iCloud（CloudKit）と同期

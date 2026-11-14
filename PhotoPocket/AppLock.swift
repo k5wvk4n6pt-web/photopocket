@@ -151,3 +151,51 @@ struct PrivacyCoverView: View {
         }
     }
 }
+
+
+/// ロック画面・目隠しを、アプリのどの画面よりも上（別の窓）に出す
+/// SwiftUIの overlay だと、全画面で開いた写真などの下に隠れてしまうため
+@MainActor
+final class LockOverlayWindow {
+    static let shared = LockOverlayWindow()
+    private var window: UIWindow?
+    private var showingLock: Bool?
+
+    func update(showLock: Bool, showCover: Bool, lock: AppLock, appearance: AppearanceMode) {
+        guard showLock || showCover else {
+            window?.isHidden = true
+            window = nil
+            showingLock = nil
+            return
+        }
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState != .unattached }) else { return }
+
+        let w: UIWindow
+        if let window {
+            w = window
+        } else {
+            w = UIWindow(windowScene: scene)
+            w.windowLevel = .alert + 1
+            w.backgroundColor = .clear
+            window = w
+        }
+        switch appearance {
+        case .light: w.overrideUserInterfaceStyle = .light
+        case .dark: w.overrideUserInterfaceStyle = .dark
+        case .system: w.overrideUserInterfaceStyle = .unspecified
+        }
+        // 中身が変わるときだけ作り直す
+        if showingLock != showLock {
+            let content: AnyView = showLock
+                ? AnyView(LockScreenView(lock: lock).tint(Theme.accent).fontDesign(.rounded))
+                : AnyView(PrivacyCoverView().fontDesign(.rounded))
+            let host = UIHostingController(rootView: content)
+            host.view.backgroundColor = .clear
+            w.rootViewController = host
+            showingLock = showLock
+        }
+        w.isHidden = false
+    }
+}
