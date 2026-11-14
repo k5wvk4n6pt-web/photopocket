@@ -16,8 +16,8 @@ struct PhotoPocketApp: App {
             RootView()
                 .id(containerIsCloud)   // 保存先を切り替えたら画面を作り直す
                 .overlay {
-                    // アプリのロック：ロック中は中身を隠して認証画面を出す
-                    if appLock.isEnabled && appLock.isLocked {
+                    // アプリのロック（フル版の機能）：ロック中は中身を隠して認証画面を出す
+                    if store.isUnlocked && appLock.isEnabled && appLock.isLocked {
                         LockScreenView(lock: appLock)
                             .tint(Theme.accent)
                             .fontDesign(.rounded)
@@ -27,7 +27,7 @@ struct PhotoPocketApp: App {
                 .overlay {
                     // ロックがオンのときは、アプリ一覧（切り替え画面）でも中身を隠す
                     // （Face IDの確認中は隠さない）
-                    if appLock.isEnabled && scenePhase != .active && !appLock.isAuthenticating {
+                    if store.isUnlocked && appLock.isEnabled && scenePhase != .active && !appLock.isAuthenticating {
                         PrivacyCoverView().fontDesign(.rounded)
                     }
                 }
@@ -46,14 +46,14 @@ struct PhotoPocketApp: App {
                 .task {
                     VideoSync.shared.configure(container: container, cloud: containerIsCloud)
                     // 起動したときにロック中なら、すぐ認証を出す
-                    if appLock.isEnabled && appLock.isLocked { await appLock.unlock() }
+                    if store.isUnlocked && appLock.isEnabled && appLock.isLocked { await appLock.unlock() }
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { VideoSync.shared.kick() }
                     if phase == .background { appLock.lockIfNeeded() }
                     // 裏から戻ってきたときにロック中なら、すぐ認証を出す
                     // （認証画面を閉じただけのときは出さない＝キャンセルしても繰り返さない）
-                    if phase == .active && appLock.consumePendingPrompt() {
+                    if phase == .active && appLock.consumePendingPrompt() && store.isUnlocked {
                         Task { await appLock.unlock() }
                     }
                 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// iCloud同期（買い切り）の案内・購入画面
+/// フル版（買い切り）の案内・購入画面
 struct UnlockView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -12,18 +12,18 @@ struct UnlockView: View {
                     ZStack {
                         Circle().fill(Theme.accent.opacity(0.12)).frame(width: 150, height: 150)
                         Circle().fill(Theme.accent.opacity(0.18)).frame(width: 104, height: 104)
-                        Image(systemName: store.isUnlocked ? "checkmark.icloud.fill" : "icloud.fill")
+                        Image(systemName: store.isUnlocked ? "checkmark.seal.fill" : "sparkles")
                             .font(.system(size: 48, weight: .semibold))
                             .foregroundStyle(Theme.accent)
                     }
                     .padding(.top, 20)
 
                     VStack(spacing: 8) {
-                        Text(store.isUnlocked ? "iCloud同期を使っています" : "iCloudで写真をまもる")
+                        Text(store.isUnlocked ? "フル版を使っています" : "フル版で、もっと自由に")
                             .font(.title2.bold())
                         Text(store.isUnlocked
-                             ? "ご購入ありがとうございます。写真と分類・フォルダは自動でiCloudに保存されています。"
-                             : "1回の購入で、ずっと使えます。\n月額ではありません。")
+                             ? "ご購入ありがとうございます。すべての機能が使えます。"
+                             : "無料版はフォルダ\(FreeLimit.folders)つ・写真\(FreeLimit.photos)枚までです。\n1回の購入で、ずっと使えます。月額ではありません。")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -31,14 +31,14 @@ struct UnlockView: View {
                     .padding(.horizontal, 24)
 
                     VStack(alignment: .leading, spacing: 16) {
-                        benefit("arrow.triangle.2.circlepath.icloud", "自動でiCloudに保存",
-                                "取り込んだ写真・フォルダ・メモがiCloudに保存されます")
-                        benefit("iphone.and.arrow.forward", "機種変更・入れ直しも安心",
-                                "同じApple IDなら、新しいiPhoneでもそのまま戻ります")
-                        benefit("ipad.and.iphone", "iPhoneとiPadで同じ内容",
-                                "同じApple IDの端末どうしで自動で同期します")
-                        benefit("trash.slash", "写真アプリから消しても安心",
-                                "写真アプリを整理しても、写真はiCloudに残ります")
+                        benefit("infinity", "フォルダも写真も無制限",
+                                "好きなだけフォルダを作って、何枚でも仕分けできます")
+                        benefit("arrow.triangle.2.circlepath.icloud", "フォルダ分けをiCloudに保存",
+                                "機種変更や入れ直しでも、フォルダ分けとメモが戻ります。iPhoneとiPadで同じ内容に")
+                        benefit("faceid", "Face IDでロック",
+                                "アプリを開くときにFace IDが必要に。アプリ一覧でも中身が見えません")
+                        benefit("text.viewfinder", "文字の読み取り・AIのまとめ",
+                                "写真の中の文字を読み取って検索できます。書類はAIが短くまとめます")
                     }
                     .padding(18)
                     .card()
@@ -64,7 +64,7 @@ struct UnlockView: View {
                             .font(.callout.bold())
                             .disabled(store.isPurchasing)
 
-                            Text("iCloudの保存容量は、お使いのiCloudの空き容量を使います。無料版のまま使う場合、写真はこのiPhoneの中にだけ保存されます。")
+                            Text("写真の本体はいつも写真アプリに残るので、無料版でもフル版でも、アプリを消して写真が消えることはありません。")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)

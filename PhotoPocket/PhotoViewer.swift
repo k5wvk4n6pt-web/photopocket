@@ -8,6 +8,8 @@ struct PhotoViewer: View {
     @State private var currentID: UUID
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var store: Store
+    @State private var showUnlock = false
 
     @State private var showMove = false
     @State private var confirmAppDelete = false
@@ -44,12 +46,7 @@ struct PhotoViewer: View {
             .task(id: currentID) {
                 shareURL = nil
                 guard let current else { return }
-                if current.isVideo {
-                    shareURL = VideoFiles.shareURL(for: current)
-                    return
-                }
-                let id = current.id, data = current.imageData, ext = current.fileExtension, date = current.displayDate
-                shareURL = await Task.detached { PhotoStorage.temporaryFile(id: id, data: data, fileExtension: ext, date: date) }.value
+                shareURL = await PhotoAssets.shareFile(for: current)
             }
             .background(Color.black)
             .navigationTitle(titleText)
@@ -78,7 +75,10 @@ struct PhotoViewer: View {
                         }
                         Spacer()
                         if !current.isVideo {
-                            Button { showText = true } label: {
+                            Button {
+                                // 文字の読み取り・要約は有料版の機能
+                                if store.isUnlocked { showText = true } else { showUnlock = true }
+                            } label: {
                                 Image(systemName: "text.viewfinder")
                             }
                             .accessibilityLabel("写真の文字を読み取る")
@@ -91,7 +91,7 @@ struct PhotoViewer: View {
                             Image(systemName: current.memo.isEmpty ? "text.bubble" : "text.bubble.fill")
                         }
                         Spacer()
-                        if !current.isVideo {
+                        if !current.isVideo && current.isLegacyCopy {
                             Button { rotate(current) } label: { Image(systemName: "rotate.right") }
                                 .accessibilityLabel("右に回転")
                             Spacer()
@@ -99,18 +99,19 @@ struct PhotoViewer: View {
                         Button { showMove = true } label: { Image(systemName: "folder") }
                         Spacer()
                         Menu {
-                            Button {
-                                Task { await export(current) }
-                            } label: {
-                                Label("写真アプリに書き出す", systemImage: "square.and.arrow.down")
-                            }
-                            if current.isStillInLibrary {
-                                Button(role: .destructive) { confirmLibraryDelete = true } label: {
-                                    Label("写真アプリから削除（アプリには残す）", systemImage: "iphone.slash")
+                            if current.isLegacyCopy {
+                                Button {
+                                    Task { await export(current) }
+                                } label: {
+                                    Label("写真アプリに書き出す", systemImage: "square.and.arrow.down")
+                                }
+                            } else {
+                                Button { confirmAppDelete = true } label: {
+                                    Label("フォルダから外す（写真アプリには残す）", systemImage: "folder.badge.minus")
                                 }
                             }
-                            Button(role: .destructive) { confirmAppDelete = true } label: {
-                                Label("このアプリから削除", systemImage: "trash")
+                            Button(role: .destructive) { confirmLibraryDelete = true } label: {
+                                Label("写真アプリから削除", systemImage: "trash")
                             }
                         } label: {
                             Image(systemName: "trash")
@@ -134,17 +135,16 @@ struct PhotoViewer: View {
                     if let current { Task { await deleteFromLibrary(current) } }
                 }
             } message: {
-                Text("このアプリ内の写真はそのまま残ります。")
+                Text("このあとiPhoneの確認画面が出ます。削除した写真は写真アプリの「最近削除した項目」に30日間残ります。")
             }
-            .confirmationDialog("この写真をアプリから削除しますか？", isPresented: $confirmAppDelete, titleVisibility: .visible) {
-                Button("アプリから削除", role: .destructive) {
+            .confirmationDialog("この写真をフォルダから外しますか？", isPresented: $confirmAppDelete, titleVisibility: .visible) {
+                Button("フォルダから外す", role: .destructive) {
                     if let current { deleteFromApp(current) }
                 }
             } message: {
-                Text(current?.isStillInLibrary == true
-                     ? "写真アプリには元の写真が残っています。"
-                     : "写真アプリから削除済みのため、元に戻せません（写真アプリの「最近削除した項目」に残っている場合を除く）。")
+                Text("写真アプリの写真はそのまま残ります。")
             }
+            .sheet(isPresented: $showUnlock) { UnlockView().environmentObject(store) }
             .sheet(isPresented: $showMove) {
                 MoveSheet(currentFolder: folder) { target in
                     guard let current else { return }
@@ -199,11 +199,14 @@ struct PhotoViewer: View {
     }
 
     private func deleteFromLibrary(_ item: PhotoItem) async {
-        guard let id = item.sourceAssetID else { return }
+        let next = neighborID(of: item.id)
+        let wasLegacy = item.isLegacyCopy
         do {
-            _ = try await PhotoLibrary.deleteFromLibrary(identifiers: [id])
-            item.deletedFromLibrary = true
-            try? context.save()
+            _ = try await PhotoAssets.deleteFromLibrary([item], context: context)
+            // 写真アプリから消した写真はフォルダからも外れるので、次の写真へ
+            if !wasLegacy {
+                if let next { currentID = next } else { dismiss() }
+            }
         } catch LibraryError.cancelled {
         } catch {
             alertMessage = error.localizedDescription
@@ -223,12 +226,22 @@ struct PhotoViewer: View {
 struct FullImagePage: View {
     let item: PhotoItem
     @State private var image: UIImage?
+    @State private var missing = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.black
             if let image {
                 ZoomableImage(image: image)
+            } else if missing {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle").font(.largeTitle)
+                    Text("写真アプリでこの写真が見つかりません。\n写真アプリで削除されたか、写真へのアクセスが\n許可されていない可能性があります。")
+                        .multilineTextAlignment(.center)
+                }
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding()
             } else {
                 ProgressView().tint(.white)
             }
@@ -244,8 +257,8 @@ struct FullImagePage: View {
             }
         }
         .task(id: "\(item.id.uuidString)-\(item.byteSize)") {
-            let data = item.imageData
-            image = await Task.detached { PhotoStorage.displayImage(data: data) }.value
+            image = await PhotoAssets.displayImage(for: item)
+            if image == nil { missing = true }
         }
     }
 }

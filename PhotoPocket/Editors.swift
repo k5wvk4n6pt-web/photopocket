@@ -121,6 +121,8 @@ struct FolderEditor: View {
     let target: FolderEditTarget
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: Store
+    @State private var showUnlock = false
     @Query(sort: [SortDescriptor(\PhotoCategory.sortOrder), SortDescriptor(\PhotoCategory.createdAt)])
     private var categories: [PhotoCategory]
 
@@ -184,6 +186,7 @@ struct FolderEditor: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background.ignoresSafeArea())
+            .sheet(isPresented: $showUnlock) { UnlockView().environmentObject(store) }
             .navigationTitle(isNew ? "新しいフォルダ" : "フォルダを編集")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -212,6 +215,11 @@ struct FolderEditor: View {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         switch target {
         case .new:
+            // 無料版はフォルダ3つまで
+            guard FreeLimit.canAddFolder(store: store, context: context) else {
+                showUnlock = true
+                return
+            }
             let order = (category?.folderArray.map(\.sortOrder).max() ?? -1) + 1
             context.insert(PhotoFolder(name: trimmed, category: category, colorName: colorName, sortOrder: order))
         case .edit(let f):

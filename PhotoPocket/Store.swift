@@ -1,7 +1,7 @@
 import Foundation
 import StoreKit
 
-/// 買い切り課金（iCloud同期のアンロック）
+/// 買い切り課金（フル版のアンロック：無制限・iCloud同期・Face IDロック・文字の読み取り）
 @MainActor
 final class Store: ObservableObject {
     /// ↓ App Store Connect で作る「非消耗型」App内課金の製品ID
@@ -71,7 +71,7 @@ final class Store: ObservableObject {
                 if case .verified(let t) = verification {
                     await t.finish()
                     setUnlocked(true)
-                    message = "ありがとうございます！iCloud同期が使えるようになりました。"
+                    message = "ありがとうございます！フル版のすべての機能が使えるようになりました。"
                 } else {
                     message = "購入を確認できませんでした。"
                 }

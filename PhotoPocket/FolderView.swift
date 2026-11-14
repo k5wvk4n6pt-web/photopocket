@@ -2,36 +2,33 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
-/// フォルダの中身（写真のグリッド）と取り込み
+/// フォルダの中身（写真のグリッド）と、写真アプリからの登録
+/// 写真の本体は写真アプリに置いたまま。フォルダには「どの写真か」だけを入れる
 struct FolderView: View {
     @Bindable var folder: PhotoFolder
     @Environment(\.modelContext) private var context
-    @AppStorage("deletePolicy") private var deletePolicyRaw = DeletePolicy.ask.rawValue
+    @EnvironmentObject private var store: Store
     @AppStorage("reviewAfterImport") private var reviewAfterImport = true
     @State private var reviewFirst: PhotoItem?
     @StateObject private var importer = PhotoImporter()
 
     @State private var showPicker = false
     @State private var pickerItems: [PhotosPickerItem] = []
-    @State private var justImported: [PhotoItem] = []
-    @State private var failedCount = 0
-    @State private var askLibraryDelete = false
 
     @State private var selecting = false
     @State private var selected = Set<UUID>()
     @State private var viewerItem: PhotoItem?
     @State private var showMove = false
-    @State private var confirmAppDelete = false
-    @State private var confirmCleanup = false
+    @State private var confirmRemove = false
+    @State private var confirmLibraryDelete = false
     @State private var editFolder: FolderEditTarget?
     @State private var alertMessage: String?
     @State private var busy = false
+    @State private var showUnlock = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
-    private var policy: DeletePolicy { DeletePolicy(rawValue: deletePolicyRaw) ?? .ask }
     private var photos: [PhotoItem] { folder.sortedPhotos }
     private var selectedItems: [PhotoItem] { photos.filter { selected.contains($0.id) } }
-    private var stillInLibrary: [PhotoItem] { photos.filter(\.isStillInLibrary) }
 
     var body: some View {
         ScrollView {
@@ -56,8 +53,8 @@ struct FolderView: View {
         .background(Theme.background.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             if !selecting && !photos.isEmpty {
-                Button { showPicker = true } label: {
-                    Label("写真・動画を取り込む", systemImage: "plus")
+                Button { openPicker() } label: {
+                    Label("写真・動画を入れる", systemImage: "plus")
                 }
                 .buttonStyle(BigButtonStyle())
                 .padding(.bottom, 10)
@@ -69,7 +66,7 @@ struct FolderView: View {
         .photosPicker(
             isPresented: $showPicker,
             selection: $pickerItems,
-            maxSelectionCount: nil,
+            maxSelectionCount: store.isUnlocked ? nil : max(1, FreeLimit.remainingPhotos(store: store, context: context)),
             selectionBehavior: .ordered,
             matching: .any(of: [.images, .videos]),
             preferredItemEncoding: .current,
@@ -81,45 +78,31 @@ struct FolderView: View {
         }
         .overlay {
             if importer.isImporting {
-                ProgressOverlay(text: "取り込み中… \(importer.done)/\(importer.total)")
+                ProgressOverlay(text: "フォルダに入れています… \(importer.done)/\(importer.total)")
             } else if busy {
                 ProgressOverlay(text: "処理中…")
             }
         }
-        // 取り込み後：写真アプリから消す？残す？
         .confirmationDialog(
-            "\(justImported.count)枚を取り込みました",
-            isPresented: $askLibraryDelete,
+            "\(selected.count)枚をこのフォルダから外しますか？",
+            isPresented: $confirmRemove,
             titleVisibility: .visible
         ) {
-            Button("写真アプリから削除する", role: .destructive) {
-                let items = justImported
-                Task { await deleteFromLibrary(items); await review() }
-            }
-            Button("写真アプリに残す") { justImported = []; Task { await review() } }
+            Button("フォルダから外す", role: .destructive) { removeFromFolder(selectedItems) }
         } message: {
-            Text(importMessage)
+            Text("写真アプリの写真はそのまま残ります。")
         }
         .confirmationDialog(
-            "写真アプリに残っている\(stillInLibrary.count)枚を削除しますか？",
-            isPresented: $confirmCleanup,
+            "\(selected.count)枚を写真アプリから削除しますか？",
+            isPresented: $confirmLibraryDelete,
             titleVisibility: .visible
         ) {
-            Button("写真アプリから削除する", role: .destructive) {
-                let items = stillInLibrary
+            Button("写真アプリから削除", role: .destructive) {
+                let items = selectedItems
                 Task { await deleteFromLibrary(items) }
             }
         } message: {
-            Text("このアプリ内の写真はそのまま残ります。削除した写真は写真アプリの「最近削除した項目」に30日間残ります。")
-        }
-        .confirmationDialog(
-            "\(selected.count)枚をこのアプリから削除しますか？",
-            isPresented: $confirmAppDelete,
-            titleVisibility: .visible
-        ) {
-            Button("アプリから削除", role: .destructive) { deleteFromApp(selectedItems) }
-        } message: {
-            Text(appDeleteMessage)
+            Text("このあとiPhoneの確認画面が出ます。削除した写真は写真アプリの「最近削除した項目」に30日間残ります。")
         }
         .sheet(isPresented: $showMove) {
             MoveSheet(currentFolder: folder) { target in
@@ -129,6 +112,7 @@ struct FolderView: View {
             }
         }
         .sheet(item: $editFolder) { FolderEditor(target: $0) }
+        .sheet(isPresented: $showUnlock) { UnlockView().environmentObject(store) }
         .fullScreenCover(item: $viewerItem) { item in
             PhotoViewer(folder: folder, startID: item.id)
         }
@@ -159,21 +143,11 @@ struct FolderView: View {
                 Text("\(selected.count)枚選択").font(.footnote).foregroundStyle(.secondary)
                 Spacer()
                 Menu {
-                    Button(role: .destructive) {
-                        let items = selectedItems.filter(\.isStillInLibrary)
-                        Task { await deleteFromLibrary(items); endSelecting() }
-                    } label: {
-                        Label("写真アプリから削除（アプリには残す）", systemImage: "iphone.slash")
+                    Button { confirmRemove = true } label: {
+                        Label("フォルダから外す（写真アプリには残す）", systemImage: "folder.badge.minus")
                     }
-                    .disabled(!selectedItems.contains(where: \.isStillInLibrary))
-                    Button {
-                        let items = selectedItems
-                        Task { await exportToLibrary(items); endSelecting() }
-                    } label: {
-                        Label("写真アプリに書き出す", systemImage: "square.and.arrow.down")
-                    }
-                    Button(role: .destructive) { confirmAppDelete = true } label: {
-                        Label("このアプリから削除", systemImage: "trash")
+                    Button(role: .destructive) { confirmLibraryDelete = true } label: {
+                        Label("写真アプリから削除", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "trash")
@@ -186,18 +160,6 @@ struct FolderView: View {
                     Button { selecting = true } label: { Label("写真を選択", systemImage: "checkmark.circle") }
                         .disabled(photos.isEmpty)
                     Button { editFolder = .edit(folder) } label: { Label("フォルダを編集", systemImage: "pencil") }
-                    Divider()
-                    Button(role: .destructive) { confirmCleanup = true } label: {
-                        Label("写真アプリに残っている分を削除…", systemImage: "iphone.slash")
-                    }
-                    .disabled(stillInLibrary.isEmpty)
-                    Button {
-                        let items = photos
-                        Task { await exportToLibrary(items) }
-                    } label: {
-                        Label("すべて写真アプリに書き出す", systemImage: "square.and.arrow.down")
-                    }
-                    .disabled(photos.isEmpty)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -215,20 +177,6 @@ struct FolderView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            if !stillInLibrary.isEmpty && !selecting {
-                Button { confirmCleanup = true } label: {
-                    VStack(spacing: 2) {
-                        Image(systemName: "iphone")
-                        Text("\(stillInLibrary.count)枚")
-                            .font(.caption2.bold())
-                    }
-                    .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                }
-                .accessibilityLabel("写真アプリにも残っている写真\(stillInLibrary.count)枚。タップで削除")
-            }
         }
         .padding(14)
         .card()
@@ -238,28 +186,14 @@ struct FolderView: View {
         FriendlyEmptyView(
             symbol: "photo.badge.plus",
             title: "まだ写真がありません",
-            message: "写真アプリから写真や動画を選んで取り込みましょう。\n取り込んだあと、写真アプリの写真を\n消すか残すか選べます。"
+            message: "写真アプリから写真や動画を選んで、このフォルダに入れましょう。\n写真は写真アプリに残ったままなので安心です。"
         ) {
-            Button { showPicker = true } label: {
-                Label("写真・動画を取り込む", systemImage: "plus")
+            Button { openPicker() } label: {
+                Label("写真・動画を入れる", systemImage: "plus")
             }
             .buttonStyle(BigButtonStyle())
         }
         .padding(.top, 40)
-    }
-
-    private var importMessage: String {
-        var text = "写真アプリの元の写真はどうしますか？\n削除しても、このアプリには残ります。削除した写真は写真アプリの「最近削除した項目」に30日間残ります。"
-        if failedCount > 0 { text += "\n\n※\(failedCount)枚は取り込めませんでした。" }
-        return text
-    }
-
-    private var appDeleteMessage: String {
-        let gone = selectedItems.filter { !$0.isStillInLibrary }.count
-        if gone > 0 {
-            return "そのうち\(gone)枚は写真アプリから削除済みです。アプリから消すと元に戻せません（写真アプリの「最近削除した項目」に残っている場合を除く）。"
-        }
-        return "写真アプリには元の写真が残っています。"
     }
 
     // MARK: - Actions
@@ -277,32 +211,32 @@ struct FolderView: View {
         selected = []
     }
 
-    private func runImport(_ items: [PhotosPickerItem]) async {
-        let result = await importer.importItems(items, into: folder, context: context)
-        pickerItems = []
-        failedCount = result.failed
-        let deletable = result.importedItems.filter { $0.sourceAssetID != nil }
-        justImported = deletable
-        reviewFirst = result.importedItems.first
-
-        if deletable.isEmpty {
-            if result.failed > 0 { alertMessage = "\(result.failed)枚は取り込めませんでした。" }
-            await review()
-            return
-        }
-        switch policy {
-        case .ask:
-            askLibraryDelete = true
-        case .delete:
-            await deleteFromLibrary(deletable)
-            await review()
-        case .keep:
-            if result.failed > 0 { alertMessage = "\(result.failed)枚は取り込めませんでした。" }
-            await review()
+    /// 無料版の上限に達していたら、有料版の案内を出す
+    private func openPicker() {
+        if FreeLimit.remainingPhotos(store: store, context: context) <= 0 {
+            showUnlock = true
+        } else {
+            showPicker = true
         }
     }
 
-    /// 取り込んだ写真をすぐ開いて、回転や文字の確認ができるようにする
+    private func runImport(_ items: [PhotosPickerItem]) async {
+        let limit = FreeLimit.remainingPhotos(store: store, context: context)
+        let result = await importer.importItems(items, into: folder, context: context, limit: limit)
+        pickerItems = []
+        reviewFirst = result.importedItems.first
+
+        if result.overLimit > 0 {
+            showUnlock = true
+            return
+        }
+        if result.failed > 0 {
+            alertMessage = "\(result.failed)枚は入れられませんでした。写真へのアクセスを「フルアクセス」にすると入れられます。"
+        }
+        await review()
+    }
+
+    /// 入れた写真をすぐ開いて、文字やメモの確認ができるようにする
     private func review() async {
         guard reviewAfterImport, let first = reviewFirst, alertMessage == nil else { return }
         reviewFirst = nil
@@ -311,16 +245,12 @@ struct FolderView: View {
     }
 
     private func deleteFromLibrary(_ items: [PhotoItem]) async {
-        let ids = items.compactMap(\.sourceAssetID)
-        guard !ids.isEmpty else { return }
+        guard !items.isEmpty else { return }
         busy = true
-        defer { busy = false; justImported = [] }
+        defer { busy = false }
         do {
-            _ = try await PhotoLibrary.deleteFromLibrary(identifiers: ids)
-            // 見つからなかった写真は、すでに写真アプリから消えているので「削除済み」扱いにする
-            // （isStillInLibrary はこの端末で取り込んだ写真だけが対象）
-            for item in items { item.deletedFromLibrary = true }
-            try? context.save()
+            _ = try await PhotoAssets.deleteFromLibrary(items, context: context)
+            endSelecting()
         } catch LibraryError.cancelled {
             // キャンセル時は何もしない
         } catch {
@@ -328,20 +258,8 @@ struct FolderView: View {
         }
     }
 
-    private func exportToLibrary(_ items: [PhotoItem]) async {
-        guard !items.isEmpty else { return }
-        busy = true
-        defer { busy = false }
-        do {
-            try await PhotoLibrary.exportToLibrary(items: items)
-            alertMessage = "\(items.count)枚を写真アプリに書き出しました。"
-        } catch {
-            alertMessage = error.localizedDescription
-        }
-    }
-
-    private func deleteFromApp(_ items: [PhotoItem]) {
-        for item in items {
+    private func removeFromFolder(_ items: [PhotoItem]) {
+        for item in items where !item.isLegacyCopy {
             ThumbnailCache.shared.remove(item.id.uuidString)
             context.delete(item)
         }

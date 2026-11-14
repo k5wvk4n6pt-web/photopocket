@@ -8,6 +8,8 @@ struct AllPhotosView: View {
     @State private var viewerItem: PhotoItem?
     @State private var query = ""
     @State private var ocrProgress: (done: Int, total: Int)?
+    @EnvironmentObject private var store: Store
+    @State private var showUnlock = false
 
     private var unreadCount: Int { photos.filter { !$0.textRecognized && !$0.isVideo }.count }
 
@@ -47,7 +49,7 @@ struct AllPhotosView: View {
         ScrollView {
             if photos.isEmpty {
                 FriendlyEmptyView(symbol: "photo.on.rectangle", title: "写真はまだありません",
-                                  message: "ホームから分類とフォルダを開いて、写真を取り込みましょう。") { EmptyView() }
+                                  message: "ホームから分類とフォルダを開いて、写真を入れましょう。") { EmptyView() }
             } else if !query.trimmingCharacters(in: .whitespaces).isEmpty {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     Text("「\(query)」が見つかった写真：\(searchResults.count)枚")
@@ -85,7 +87,10 @@ struct AllPhotosView: View {
                 .padding(.bottom, 20)
             } else {
                 if unreadCount > 0 {
-                    Button { Task { await readAll() } } label: {
+                    Button {
+                        // 文字の読み取りは有料版の機能
+                        if store.isUnlocked { Task { await readAll() } } else { showUnlock = true }
+                    } label: {
                         Label("まだ文字を読み取っていない写真 \(unreadCount)枚をまとめて読み取る", systemImage: "text.viewfinder")
                             .font(.footnote.weight(.bold))
                             .foregroundStyle(Theme.accent)
@@ -133,6 +138,7 @@ struct AllPhotosView: View {
             }
         }
         .photoViewerCover($viewerItem)
+        .sheet(isPresented: $showUnlock) { UnlockView().environmentObject(store) }
     }
 
     private func snippet(of item: PhotoItem) -> String {
@@ -227,10 +233,10 @@ struct RecentPhotosView: View {
         ScrollView {
             if photos.isEmpty {
                 FriendlyEmptyView(symbol: "clock", title: "まだありません",
-                                  message: "取り込んだ写真が、新しい順にここに並びます。") { EmptyView() }
+                                  message: "フォルダに入れた写真が、新しい順にここに並びます。") { EmptyView() }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("最近取り込んだ写真（新しい順）")
+                    Text("最近フォルダに入れた写真（新しい順）")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 4)

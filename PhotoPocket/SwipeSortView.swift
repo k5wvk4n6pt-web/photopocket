@@ -102,24 +102,9 @@ final class SwipeSorter: ObservableObject {
         moveToNext(from: index + 1)
     }
 
-    /// 写真アプリの写真・動画をアプリに取り込む
+    /// 写真アプリの写真・動画をフォルダに登録する（コピーはしない）
     private func importAsset(_ asset: PHAsset, to folder: PhotoFolder, context: ModelContext) async -> PhotoItem? {
-        if asset.mediaType == .video {
-            guard let temp = await VideoFiles.export(asset: asset) else { return nil }
-            return await VideoFiles.makeItem(from: temp, sourceAssetID: asset.localIdentifier,
-                                             fallbackDate: asset.creationDate, folder: folder, context: context)
-        }
-        guard let data = await Self.loadData(asset) else { return nil }
-        let prepared = await Task.detached { PhotoStorage.prepare(data: data) }.value
-        let item = PhotoItem(
-            imageData: data,
-            thumbData: prepared.thumbData,
-            fileExtension: prepared.fileExtension,
-            takenAt: prepared.takenAt ?? asset.creationDate,
-            sourceAssetID: asset.localIdentifier,
-            folder: folder
-        )
-        context.insert(item)
+        let item = await PhotoAssets.makeItem(from: asset, folder: folder, context: context)
         try? context.save()
         return item
     }
@@ -170,7 +155,7 @@ final class SwipeSorter: ObservableObject {
         var actions: [Action] = []
         var failed = 0
         for (n, a) in assets.enumerated() where !isDone(a) {
-            progressText = "取り込んでいます… \(n + 1)/\(assets.count)"
+            progressText = "フォルダに入れています… \(n + 1)/\(assets.count)"
             guard let item = await importAsset(a, to: folder, context: context) else { failed += 1; continue }
             handled.insert(a.localIdentifier)
             if alsoDelete { pendingDelete.append(a.localIdentifier) }
@@ -233,8 +218,15 @@ final class SwipeSorter: ObservableObject {
             saveHandled()
             pendingDelete = []
             history.removeAll()
-            for p in photos where p.sourceAssetID.map({ ids.contains($0) }) == true {
-                p.deletedFromLibrary = true
+            for p in photos where p.sourceAssetID.map({ deleted.contains($0) }) == true
+                && p.importDeviceID == DeviceID.current {
+                if p.isLegacyCopy {
+                    p.deletedFromLibrary = true
+                } else {
+                    // 写真アプリから消えた写真は、フォルダからも外す
+                    ThumbnailCache.shared.remove(p.id.uuidString)
+                    context.delete(p)
+                }
             }
             try? context.save()
             return "\(deleted.count)枚を写真アプリから削除しました。「最近削除した項目」に30日間残ります。"
@@ -335,7 +327,8 @@ struct SwipeSortView: View {
     @Query private var photos: [PhotoItem]
     @Query(sort: [SortDescriptor(\PhotoFolder.sortOrder), SortDescriptor(\PhotoFolder.createdAt)])
     private var folders: [PhotoFolder]
-    @AppStorage("sortMoveDeletes") private var moveDeletes = true
+    @EnvironmentObject private var store: Store
+    @State private var showUnlock = false
     @AppStorage("recentSortFolders") private var recentRaw = ""
     @AppStorage("sortOrder") private var sortOrder = "added"
     @State private var previewAsset: PHAsset?
@@ -394,7 +387,6 @@ struct SwipeSortView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Toggle("フォルダに入れた写真も写真アプリから削除", isOn: $moveDeletes)
                         Picker("並び順", selection: $sortOrder) {
                             Text("保存した順（写真アプリと同じ）").tag("added")
                             Text("撮影日順").tag("taken")
@@ -405,7 +397,7 @@ struct SwipeSortView: View {
                 }
             }
             .overlay {
-                if busy { ProgressOverlay(text: sorter.progressText ?? "取り込んでいます…") }
+                if busy { ProgressOverlay(text: sorter.progressText ?? "フォルダに入れています…") }
             }
             .overlay(alignment: .top) {
                 if let notice = sorter.notice {
@@ -420,6 +412,7 @@ struct SwipeSortView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: sorter.notice)
+            .sheet(isPresented: $showUnlock) { UnlockView().environmentObject(store) }
             .sheet(isPresented: $showFolders) {
                 FolderChooser { folder in
                     Task { await doMove(folder) }
@@ -743,15 +736,26 @@ struct SwipeSortView: View {
     }
 
     private func doMove(_ folder: PhotoFolder) async {
+        // 無料版の上限（フォルダの写真は合計30枚まで）
+        let remaining = FreeLimit.remainingPhotos(store: store, context: context)
+        if remaining <= 0 {
+            showUnlock = true
+            return
+        }
         busy = true
         let ok: Bool
+        var hitLimit = false
         if gridMode {
-            let list = selectedAssets
+            var list = selectedAssets
             guard !list.isEmpty else { busy = false; return }
-            ok = await sorter.move(list, to: folder, context: context, alsoDelete: moveDeletes) > 0
+            if list.count > remaining {
+                list = Array(list.prefix(remaining))
+                hitLimit = true
+            }
+            ok = await sorter.move(list, to: folder, context: context, alsoDelete: false) > 0
             gridSelection = []
         } else {
-            ok = await sorter.move(to: folder, context: context, alsoDelete: moveDeletes)
+            ok = await sorter.move(to: folder, context: context, alsoDelete: false)
         }
         busy = false
         if ok {
@@ -759,6 +763,7 @@ struct SwipeSortView: View {
             ids.insert(folder.id.uuidString, at: 0)
             recentRaw = ids.prefix(6).joined(separator: ",")
         }
+        if hitLimit { showUnlock = true }
     }
 
     private func commit(thenClose: Bool) async {

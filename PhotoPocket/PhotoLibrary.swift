@@ -106,7 +106,7 @@ enum PhotoLibrary {
     }
 }
 
-/// 写真アプリからの取り込み処理
+/// 写真アプリの写真をフォルダに登録する処理（写真はコピーしない）
 @MainActor
 final class PhotoImporter: ObservableObject {
     @Published var isImporting = false
@@ -116,53 +116,42 @@ final class PhotoImporter: ObservableObject {
     struct Result {
         var importedItems: [PhotoItem] = []
         var failed = 0
+        /// 無料版の上限で入れられなかった枚数
+        var overLimit = 0
     }
 
-    func importItems(_ pickerItems: [PhotosPickerItem], into folder: PhotoFolder, context: ModelContext) async -> Result {
+    /// - Parameter limit: 入れられる最大枚数（無料版の上限）
+    func importItems(_ pickerItems: [PhotosPickerItem], into folder: PhotoFolder, context: ModelContext,
+                     limit: Int = .max) async -> Result {
+        var result = Result()
+        let ids = pickerItems.compactMap(\.itemIdentifier)
+        result.failed = pickerItems.count - ids.count
+        let allowed = Array(ids.prefix(limit))
+        result.overLimit = ids.count - allowed.count
+        guard !allowed.isEmpty else { return result }
+
         isImporting = true
         done = 0
-        total = pickerItems.count
-        var result = Result()
+        total = allowed.count
+        defer { isImporting = false }
 
-        for pickerItem in pickerItems {
-            // 動画
-            if pickerItem.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
-                if let video = try? await pickerItem.loadTransferable(type: PickedVideo.self),
-                   let item = await VideoFiles.makeItem(from: video.url, sourceAssetID: pickerItem.itemIdentifier,
-                                                        fallbackDate: pickerItem.itemIdentifier.flatMap {
-                                                            PHAsset.fetchAssets(withLocalIdentifiers: [$0], options: nil).firstObject?.creationDate
-                                                        }, folder: folder, context: context) {
-                    result.importedItems.append(item)
-                } else {
-                    result.failed += 1
-                }
-                done += 1
-                continue
-            }
-            do {
-                guard let data = try await pickerItem.loadTransferable(type: Data.self) else {
-                    result.failed += 1
-                    done += 1
-                    continue
-                }
-                let prepared = await Task.detached { PhotoStorage.prepare(data: data) }.value
-                let item = PhotoItem(
-                    imageData: data,
-                    thumbData: prepared.thumbData,
-                    fileExtension: prepared.fileExtension,
-                    takenAt: prepared.takenAt,
-                    sourceAssetID: pickerItem.itemIdentifier,
-                    folder: folder
-                )
-                context.insert(item)
+        guard await PhotoAssets.ensureReadAccess() else {
+            result.failed += allowed.count
+            return result
+        }
+        let fetched = PHAsset.fetchAssets(withLocalIdentifiers: allowed, options: nil)
+        var byID: [String: PHAsset] = [:]
+        fetched.enumerateObjects { asset, _, _ in byID[asset.localIdentifier] = asset }
+
+        for id in allowed {
+            if let asset = byID[id], let item = await PhotoAssets.makeItem(from: asset, folder: folder, context: context) {
                 result.importedItems.append(item)
-            } catch {
+            } else {
                 result.failed += 1
             }
             done += 1
         }
         try? context.save()
-        isImporting = false
         return result
     }
 }

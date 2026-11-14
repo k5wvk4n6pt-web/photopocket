@@ -215,7 +215,9 @@ final class VideoSync: ObservableObject {
     private func videos() -> [PhotoItem] {
         guard let context else { return [] }
         let descriptor = FetchDescriptor<PhotoItem>(predicate: #Predicate { $0.mediaType == "video" })
-        return (try? context.fetch(descriptor)) ?? []
+        // 旧形式（アプリ内に動画本体を持つ）だけが対象。写真アプリを参照する動画は同期しない
+        // （参照に切り替えた動画のファイルとiCloud上の動画は cleanupOrphans で片付く）
+        return ((try? context.fetch(descriptor)) ?? []).filter(\.isLegacyCopy)
     }
 
     private func runOnce() async {
@@ -352,6 +354,7 @@ struct VideoPage: View {
     @ObservedObject private var sync = VideoSync.shared
     @State private var player: AVPlayer?
     @State private var poster: UIImage?
+    @State private var referenceMissing = false
     @EnvironmentObject private var store: Store
 
     var body: some View {
@@ -367,7 +370,18 @@ struct VideoPage: View {
             }
         }
         .task(id: "\(item.id)-\(sync.fileVersion)") {
-            if let url = VideoFiles.localURL(for: item) {
+            if !item.isLegacyCopy {
+                // 写真アプリの動画を再生する
+                if player == nil {
+                    if let playerItem = await PhotoAssets.playerItem(for: item) {
+                        player = AVPlayer(playerItem: playerItem)
+                    } else {
+                        let id = item.id, data = item.thumbData
+                        poster = await Task.detached { PhotoStorage.thumbnail(id: id, data: data) }.value
+                        referenceMissing = true
+                    }
+                }
+            } else if let url = VideoFiles.localURL(for: item) {
                 if player == nil { player = AVPlayer(url: url) }
             } else {
                 let data = item.imageData
@@ -382,7 +396,15 @@ struct VideoPage: View {
 
     private var missingNotice: some View {
         VStack(spacing: 12) {
-            if sync.downloading.contains(item.id) {
+            if !item.isLegacyCopy {
+                if referenceMissing {
+                    Image(systemName: "exclamationmark.triangle").font(.largeTitle)
+                    Text("写真アプリでこの動画が見つかりません。\n写真アプリで削除された可能性があります。")
+                        .multilineTextAlignment(.center)
+                } else {
+                    ProgressView().tint(.white)
+                }
+            } else if sync.downloading.contains(item.id) {
                 ProgressView().tint(.white)
                 Text("iCloudから動画を取ってきています…")
             } else if store.isUnlocked && item.videoUploaded {

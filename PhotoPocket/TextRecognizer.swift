@@ -23,7 +23,7 @@ enum TextRecognizer {
     /// 写真1枚を読み取って保存する
     @MainActor
     static func run(on item: PhotoItem, context: ModelContext) async {
-        guard let data = item.imageData else { return }
+        guard let data = await PhotoAssets.imageData(for: item) else { return }
         let text = (try? await recognize(data: data)) ?? ""
         item.recognizedText = text
         item.textRecognized = true

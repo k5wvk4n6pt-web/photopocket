@@ -160,6 +160,7 @@ struct HomeView: View {
     @State private var folderToDelete: PhotoFolder?
     @State private var showSorter = false
     @State private var showReorder = false
+    @State private var showMigration = false
 
     private var uncategorized: [PhotoFolder] { allFolders.filter { $0.category == nil } }
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -263,6 +264,15 @@ struct HomeView: View {
         .deleteFolderDialog($folderToDelete)
         .fullScreenCover(isPresented: $showSorter) { SwipeSortView() }
         .sheet(isPresented: $showReorder) { CategoryReorderSheet() }
+        .sheet(isPresented: $showMigration) { MigrationView() }
+        .task {
+            // 以前のバージョンで取り込んだ写真（アプリ内にコピーがある）があれば、写真アプリに戻す案内を出す
+            // （戻せなかった写真だけが残っている場合は、毎回は出さない）
+            let legacy = PhotoAssets.legacyItems(in: context).count
+            if legacy > 0 && legacy != UserDefaults.standard.integer(forKey: "migrationSkippedCount") {
+                showMigration = true
+            }
+        }
     }
 
     /// iPhoneの写真をスワイプで仕分ける入口
@@ -322,7 +332,13 @@ struct HomeView: View {
 
     /// はじめての人向けの分類とフォルダのセット
     private func createStarterSet() {
-        let starter: [(String, String, String, [(String, String)])] = [
+        // 無料版はフォルダ3つまでなので、3つだけのセット
+        let freeStarter: [(String, String, String, [(String, String)])] = [
+            ("家族", "house.fill", "pink", [("日々のこと", "orange")]),
+            ("学校", "graduationcap.fill", "blue", [("おたより・書類", "blue")]),
+            ("趣味", "heart.fill", "purple", [("お気に入り", "pink")]),
+        ]
+        let fullStarter: [(String, String, String, [(String, String)])] = [
             ("家族", "house.fill", "pink", [("日々のこと", "orange"), ("記念日", "pink")]),
             ("学校", "graduationcap.fill", "blue", [("行事", "yellow"), ("おたより・書類", "blue")]),
             ("仕事", "briefcase.fill", "indigo", [("資料", "indigo"), ("メモ", "gray")]),
@@ -330,6 +346,7 @@ struct HomeView: View {
             ("趣味", "heart.fill", "purple", [("お気に入り", "pink"), ("作品", "green")]),
             ("自然", "leaf.fill", "green", [("風景", "mint"), ("花・植物", "green")]),
         ]
+        let starter = store.isUnlocked ? fullStarter : freeStarter
         for (i, entry) in starter.enumerated() {
             let category = PhotoCategory(name: entry.0, symbol: entry.1, colorName: entry.2, sortOrder: i)
             context.insert(category)
@@ -430,7 +447,7 @@ private struct DeleteFolderDialog: ViewModifier {
             isPresented: Binding(get: { folder != nil }, set: { if !$0 { folder = nil } }),
             titleVisibility: .visible
         ) {
-            Button("フォルダと中の写真を削除", role: .destructive) {
+            Button("フォルダを削除", role: .destructive) {
                 if let f = folder {
                     for photo in f.photoArray { ThumbnailCache.shared.remove(photo.id.uuidString) }
                     context.delete(f)
@@ -438,7 +455,7 @@ private struct DeleteFolderDialog: ViewModifier {
                 }
             }
         } message: {
-            Text("中の写真\(folder?.photoArray.count ?? 0)枚もアプリから削除されます（iCloud同期中はiCloudからも）。写真アプリから削除済みの写真は元に戻せません。")
+            Text("中の写真\(folder?.photoArray.count ?? 0)枚はフォルダから外れますが、写真アプリの写真はそのまま残ります。")
         }
     }
 }

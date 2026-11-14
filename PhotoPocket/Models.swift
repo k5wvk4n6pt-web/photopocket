@@ -77,7 +77,9 @@ final class PhotoFolder {
     }
 }
 
-/// 取り込んだ写真1枚（画像そのものもiCloudに同期される）
+/// フォルダに入れた写真1枚
+/// 新しい形式：写真の本体は写真アプリに置いたまま、どの写真かだけを覚える（imageData は nil）
+/// 旧形式：古いバージョンで取り込んだ写真。imageData に本体を持つ（起動時に新しい形式へ切り替える）
 @Model
 final class PhotoItem {
     var id: UUID = UUID()
@@ -140,7 +142,36 @@ final class PhotoItem {
         self.folder = folder
     }
 
+    /// 写真アプリの写真を参照する（新しい形式）
+    init(referenceTo localID: String, cloudAssetID: String?, thumbData: Data?, takenAt: Date?,
+         isVideo: Bool, duration: Double, folder: PhotoFolder?) {
+        self.id = UUID()
+        self.imageData = nil
+        self.thumbData = thumbData
+        self.fileExtension = cloudAssetID.map { "cloud:" + $0 } ?? (isVideo ? "mov" : "jpg")
+        self.byteSize = 0
+        self.takenAt = takenAt
+        self.importedAt = Date()
+        self.sourceAssetID = localID
+        self.importDeviceID = DeviceID.current
+        self.mediaType = isVideo ? "video" : "photo"
+        self.duration = duration
+        self.folder = folder
+    }
+
     var isVideo: Bool { mediaType == "video" }
+
+    /// 端末をまたいでも同じ写真を指せるID（iCloud写真のID）
+    /// 新しい項目を増やすとiCloud（CloudKit）の設定の更新が必要になるため、
+    /// 新しい形式では使わない fileExtension に "cloud:ID" として入れておく
+    var cloudAssetID: String? {
+        get { fileExtension.hasPrefix("cloud:") ? String(fileExtension.dropFirst(6)) : nil }
+        set { fileExtension = newValue.map { "cloud:" + $0 } ?? (isVideo ? "mov" : "jpg") }
+    }
+
+    /// 旧形式（アプリ内に本体を持っている）か
+    /// （imageData を読むと大きなデータを読み込んでしまうので、容量の記録で判定する。新しい形式は 0）
+    var isLegacyCopy: Bool { byteSize > 0 }
 
     /// 「1:05」のような長さの表示
     var durationText: String {
@@ -151,9 +182,9 @@ final class PhotoItem {
 
     var displayDate: Date { takenAt ?? importedAt }
 
-    /// このiPhoneの写真アプリにまだ残っている（はず）
+    /// 旧形式の写真で、このiPhoneの写真アプリにもまだ残っている（はず）
     var isStillInLibrary: Bool {
-        sourceAssetID != nil && !deletedFromLibrary && importDeviceID == DeviceID.current
+        isLegacyCopy && sourceAssetID != nil && !deletedFromLibrary && importDeviceID == DeviceID.current
     }
 }
 
