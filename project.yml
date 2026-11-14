@@ -24,6 +24,8 @@ targets:
         ICLOUD_CONTAINER: iCloud.com.k5wvk4n6pt.photopocket
         # iCloudの環境：最初の1回だけ Development、確認後は Production（README参照）
         CLOUDKIT_ENV: Production
+        # プッシュ通知の環境（TestFlight・App Store用のビルドでは production に切り替え）
+        APS_ENV: development
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -47,7 +49,7 @@ targets:
     entitlements:
       path: PhotoPocket/PhotoPocket.entitlements
       properties:
-        aps-environment: development
+        aps-environment: $(APS_ENV)
         com.apple.developer.icloud-services:
           - CloudKit
         com.apple.developer.icloud-container-identifiers:

@@ -34,52 +34,50 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build
 
-  # 2) 手動実行時：署名してTestFlightへ送信
+  # 2) 手動実行時：署名してTestFlightへ送信（Macも実機の登録も不要）
   testflight:
     if: github.event_name == 'workflow_dispatch' && inputs.testflight
     needs: build
     runs-on: macos-15
     env:
       # キーIDとIssuer IDは、それだけでは使えない識別番号なのでここに書いています（秘密の鍵 .p8 は Secrets に保存）
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID || '92PK3R5RPW' }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID || 'e3178071-c454-4e88-8acb-00967574cc49' }}
-      TEAM_ID: ${{ secrets.TEAM_ID || 'C4C5896L77' }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID || 'e3178071-c454-4e88-8acb-00967574cc49' }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID || '92PK3R5RPW' }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_KEY_P8 }}
+      BUNDLE_ID: com.k5wvk4n6pt.photopocket
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install tools
+        run: |
+          brew install xcodegen
+          python3 -m pip install --break-system-packages codemagic-cli-tools PyJWT cryptography
       - name: Generate project
         run: xcodegen generate
-      - name: Write App Store Connect API key
-        env:
-          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      - name: Code signing (App Store)
         run: |
-          mkdir -p "$RUNNER_TEMP/keys"
-          echo "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
-          sed -i '' "s/TEAM_ID_PLACEHOLDER/${TEAM_ID}/" ExportOptions.plist
-      - name: Archive
+          python3 .github/scripts/asc_certs.py list > "$RUNNER_TEMP/certs_before.txt"
+          openssl genrsa -out "$RUNNER_TEMP/cert_key" 2048
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@file:"$RUNNER_TEMP/cert_key" \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build IPA
         run: |
-          xcodebuild -project PhotoPocket.xcodeproj -scheme PhotoPocket \
-            -configuration Release -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/PhotoPocket.xcarchive" \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution" \
-            CLOUDKIT_ENV=${{ inputs.cloudkit_env }} \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            archive
-      - name: Export & upload to App Store Connect
+          xcode-project build-ipa \
+            --project PhotoPocket.xcodeproj \
+            --scheme PhotoPocket \
+            --archive-xcargs "CLOUDKIT_ENV=${{ inputs.cloudkit_env }} APS_ENV=production CURRENT_PROJECT_VERSION=${{ github.run_number }}"
+      - name: Upload to TestFlight
         run: |
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/PhotoPocket.xcarchive" \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          IPA=$(find build/ios/ipa -name "*.ipa" | head -1)
+          echo "IPA: $IPA"
+          app-store-connect publish --path "$IPA"
+      - name: Clean up temporary certificate
+        if: always()
+        run: python3 .github/scripts/asc_certs.py cleanup "$RUNNER_TEMP/certs_before.txt" || true
