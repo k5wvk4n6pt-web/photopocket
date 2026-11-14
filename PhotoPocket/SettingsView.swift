@@ -13,6 +13,8 @@ struct SettingsView: View {
     @State private var showUnlock = false
     @EnvironmentObject private var store: Store
     @ObservedObject private var videoSync = VideoSync.shared
+    @ObservedObject private var appLock = AppLock.shared
+    @State private var lockMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -44,6 +46,20 @@ struct SettingsView: View {
                     Text(store.isUnlocked
                          ? "写真と分類・フォルダは、あなたのiCloudに自動で保存されます。同じApple IDのiPhone・iPadで同じ内容が見られ、アプリを入れ直しても戻ります。iCloudの空き容量を使います。"
                          : "無料版では、写真はこのiPhoneの中に保存されます（iPhone全体のiCloudバックアップには含まれます）。アプリを削除すると写真も消えるので、削除前に「写真アプリに書き出す」を使ってください。")
+                }
+
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { appLock.isEnabled },
+                        set: { on in Task { lockMessage = await appLock.setEnabled(on) } }
+                    )) {
+                        Label("\(appLock.methodName)でロック", systemImage: appLock.methodSymbol)
+                    }
+                    .disabled(appLock.isAuthenticating)
+                } header: {
+                    Text("アプリのロック")
+                } footer: {
+                    Text("オンにすると、アプリを開くたびに\(appLock.methodName)が必要になります。うまくいかないときはiPhoneのパスコードで開けます。")
                 }
 
                 Section("画面のモード") {
@@ -104,6 +120,11 @@ struct SettingsView: View {
             }
             .task(id: store.isUnlocked) { if store.isUnlocked { await checkICloud() } }
             .sheet(isPresented: $showUnlock) { UnlockView().environmentObject(store) }
+            .alert("アプリのロック", isPresented: Binding(get: { lockMessage != nil }, set: { if !$0 { lockMessage = nil } })) {
+                Button("OK") { lockMessage = nil }
+            } message: {
+                Text(lockMessage ?? "")
+            }
             .alert("お知らせ", isPresented: Binding(get: { store.message != nil && !showUnlock }, set: { if !$0 { store.message = nil } })) {
                 Button("OK") { store.message = nil }
             } message: {

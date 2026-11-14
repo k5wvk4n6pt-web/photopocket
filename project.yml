@@ -38,6 +38,7 @@ targets:
         LSApplicationCategoryType: public.app-category.photography
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryUsageDescription: 取り込んだ写真を写真アプリから削除するために、写真ライブラリへのアクセスを使用します。
+        NSFaceIDUsageDescription: アプリを開くときのロックに Face ID を使用します。
         NSPhotoLibraryAddUsageDescription: アプリで整理した写真を写真アプリに書き出すために使用します。
         UILaunchScreen: {}
         UIApplicationSceneManifest:
