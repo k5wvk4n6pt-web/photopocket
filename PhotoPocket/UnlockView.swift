@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 /// フル版（年額プラン・買い切り）の案内・購入画面
 struct UnlockView: View {
