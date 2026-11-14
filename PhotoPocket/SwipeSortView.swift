@@ -445,16 +445,20 @@ struct SwipeSortView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                             .overlay {
                                 if asset.mediaType == .video {
-                                    Image(systemName: "play.circle.fill")
-                                        .font(.system(size: 64))
-                                        .symbolRenderingMode(.palette)
-                                        .foregroundStyle(.white, .black.opacity(0.45))
-                                        .shadow(radius: 4)
-                                }
-                            }
-                            .overlay(alignment: .bottomTrailing) {
-                                if asset.mediaType == .video {
-                                    VideoBadge(text: Self.durationText(asset.duration)).padding(8)
+                                    VStack(spacing: 8) {
+                                        Image(systemName: "play.circle.fill")
+                                            .font(.system(size: 64))
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(.white, .black.opacity(0.45))
+                                        Text(Self.durationText(asset.duration))
+                                            .font(.headline.weight(.heavy))
+                                            .monospacedDigit()
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 4)
+                                            .background(.black.opacity(0.55), in: Capsule())
+                                    }
+                                    .shadow(radius: 4)
                                 }
                             }
                     } else {
