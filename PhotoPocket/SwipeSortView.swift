@@ -237,6 +237,16 @@ final class SwipeSorter: ObservableObject {
         }
     }
 
+    /// 「残す」にした写真も、もう一度仕分けに出す（フォルダに入っている写真は出さない）
+    func resetSkipped(imported: Set<String>) {
+        handled = imported
+        saveHandled()
+        history.removeAll()
+        guard fetch != nil else { return }
+        moveToNext(from: 0)
+        flash("「残す」にした写真も、もう一度表示します")
+    }
+
     /// 削除予定を取り消す（写真はそのまま。次回また出てくる）
     func clearPending() {
         pendingDelete = []
@@ -387,6 +397,11 @@ struct SwipeSortView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button {
+                            sorter.resetSkipped(imported: Set(photos.compactMap(\.sourceAssetID)))
+                        } label: {
+                            Label("「残す」にした写真をもう一度出す", systemImage: "arrow.counterclockwise")
+                        }
                         Picker("並び順", selection: $sortOrder) {
                             Text("保存した順（写真アプリと同じ）").tag("added")
                             Text("撮影日順").tag("taken")
@@ -495,12 +510,20 @@ struct SwipeSortView: View {
             Spacer()
             FriendlyEmptyView(symbol: "checkmark.seal.fill", title: "仕分けが終わりました",
                               message: sorter.pendingDelete.isEmpty
-                                ? "仕分けていない写真はもうありません。新しく撮った写真は、次に開いたときに出てきます。"
+                                ? "仕分けていない写真はもうありません。\n前に「残す」にした写真と、フォルダに入れた写真は表示しません。"
                                 : "上の「削除する」を押すと、削除予定の写真を写真アプリからまとめて削除します。") {
                 Button("閉じる") {
                     if sorter.pendingDelete.isEmpty { dismiss() } else { confirmExit = true }
                 }
                 .buttonStyle(BigButtonStyle())
+                if sorter.pendingDelete.isEmpty {
+                    Button("「残す」にした写真をもう一度出す") {
+                        sorter.resetSkipped(imported: Set(photos.compactMap(\.sourceAssetID)))
+                    }
+                    .font(.callout.bold())
+                    .foregroundStyle(Theme.accent)
+                    .padding(.top, 4)
+                }
             }
             Spacer()
         }
