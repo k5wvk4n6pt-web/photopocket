@@ -57,9 +57,19 @@ jobs:
       - name: Generate project
         run: xcodegen generate
       - name: Code signing (App Store)
+        env:
+          # 証明書用の鍵。Secrets に CERT_PRIVATE_KEY があれば毎回同じ証明書を使い回す
+          CERT_PRIVATE_KEY: ${{ secrets.CERT_PRIVATE_KEY }}
         run: |
-          python3 .github/scripts/asc_certs.py list > "$RUNNER_TEMP/certs_before.txt"
-          openssl genrsa -out "$RUNNER_TEMP/cert_key" 2048
+          if [ -n "$CERT_PRIVATE_KEY" ]; then
+            echo "保存済みの鍵を使って、同じ証明書を使い回します"
+            printf '%s\n' "$CERT_PRIVATE_KEY" > "$RUNNER_TEMP/cert_key"
+            echo "REUSE_CERT=1" >> "$GITHUB_ENV"
+          else
+            echo "CERT_PRIVATE_KEY が無いので、一時的な証明書を作ります（ビルド後に取り消し）"
+            python3 .github/scripts/asc_certs.py list > "$RUNNER_TEMP/certs_before.txt"
+            openssl genrsa -out "$RUNNER_TEMP/cert_key" 2048
+          fi
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
@@ -84,5 +94,6 @@ jobs:
           echo "IPA: $IPA"
           app-store-connect publish --path "$IPA"
       - name: Clean up temporary certificate
-        if: always()
+        # 鍵を保存して使い回しているときは取り消さない（取り消しメールも来なくなる）
+        if: always() && env.REUSE_CERT != '1'
         run: python3 .github/scripts/asc_certs.py cleanup "$RUNNER_TEMP/certs_before.txt" || true
