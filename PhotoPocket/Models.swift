@@ -102,6 +102,12 @@ final class PhotoItem {
     var importDeviceID: String?
     /// 写真アプリから削除済みか
     var deletedFromLibrary: Bool = false
+    /// "photo" か "video"
+    var mediaType: String = "photo"
+    /// 動画の長さ（秒）
+    var duration: Double = 0
+    /// 動画ファイルをiCloudにアップロード済みか（動画本体はWi-Fi接続時だけ別に送る）
+    var videoUploaded: Bool = false
     var folder: PhotoFolder?
 
     init(imageData: Data, thumbData: Data?, fileExtension: String, takenAt: Date?, sourceAssetID: String?, folder: PhotoFolder?) {
@@ -115,6 +121,32 @@ final class PhotoItem {
         self.sourceAssetID = sourceAssetID
         self.importDeviceID = DeviceID.current
         self.folder = folder
+    }
+
+    /// 動画用：imageData には表示用の1コマ（JPEG）を入れ、動画本体は端末内のファイルに置く
+    init(videoPoster: Data, thumbData: Data?, fileExtension: String, byteSize: Int, duration: Double,
+         takenAt: Date?, sourceAssetID: String?, folder: PhotoFolder?) {
+        self.id = UUID()
+        self.imageData = videoPoster
+        self.thumbData = thumbData
+        self.fileExtension = fileExtension
+        self.byteSize = byteSize
+        self.duration = duration
+        self.mediaType = "video"
+        self.takenAt = takenAt
+        self.importedAt = Date()
+        self.sourceAssetID = sourceAssetID
+        self.importDeviceID = DeviceID.current
+        self.folder = folder
+    }
+
+    var isVideo: Bool { mediaType == "video" }
+
+    /// 「1:05」のような長さの表示
+    var durationText: String {
+        let total = Int(duration.rounded())
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
     var displayDate: Date { takenAt ?? importedAt }

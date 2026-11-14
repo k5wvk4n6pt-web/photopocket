@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var iCloudOK = false
     @State private var showUnlock = false
     @EnvironmentObject private var store: Store
+    @ObservedObject private var videoSync = VideoSync.shared
 
     var body: some View {
         NavigationStack {
@@ -67,10 +68,23 @@ struct SettingsView: View {
                     Text("「いつも削除する」にしても、削除の前にiPhoneの確認画面が出ます。削除した写真は写真アプリの「最近削除した項目」に30日間残ります。\n写真アプリから削除するには、写真への「フルアクセス」の許可が必要です。\niCloud同期中は、取り込んだ直後はiCloudへの保存が終わっていないことがあります。電波の良い場所で少し待ってから削除すると安心です。")
                 }
 
+                if store.isUnlocked {
+                    Section {
+                        LabeledContent("今の回線", value: videoSync.onWiFi ? "Wi-Fi" : "Wi-Fi以外（アップロードは待機）")
+                        LabeledContent("Wi-Fi待ちの動画",
+                                       value: videoSync.isUploading ? "\(videoSync.waitingUploads)本（送信中）" : "\(videoSync.waitingUploads)本")
+                    } header: {
+                        Text("動画のiCloud保存")
+                    } footer: {
+                        Text("動画は容量が大きいので、Wi-Fiにつながっているときだけ、アプリを開いている間にiCloudへ送ります。送り終わるまでは、写真アプリの元の動画は消さないでおくと安心です。ほかのiPhone・iPadで見るときも、Wi-Fiで届きます。")
+                    }
+                }
+
                 Section("保存状況") {
-                    LabeledContent("写真の枚数", value: "\(photos.count)枚")
+                    LabeledContent("写真の枚数", value: "\(photos.filter { !$0.isVideo }.count)枚")
+                    LabeledContent("動画の本数", value: "\(photos.filter(\.isVideo).count)本")
                     LabeledContent("このiPhoneの写真アプリにも残っている", value: "\(photos.filter(\.isStillInLibrary).count)枚")
-                    LabeledContent("写真の容量", value: ByteCountFormatter.string(fromByteCount: Int64(photos.reduce(0) { $0 + $1.byteSize }), countStyle: .file))
+                    LabeledContent("写真・動画の容量", value: ByteCountFormatter.string(fromByteCount: Int64(photos.reduce(0) { $0 + $1.byteSize }), countStyle: .file))
                 }
 
                 Section {

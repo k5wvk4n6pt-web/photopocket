@@ -9,7 +9,7 @@ struct AllPhotosView: View {
     @State private var query = ""
     @State private var ocrProgress: (done: Int, total: Int)?
 
-    private var unreadCount: Int { photos.filter { !$0.textRecognized }.count }
+    private var unreadCount: Int { photos.filter { !$0.textRecognized && !$0.isVideo }.count }
 
     private var searchResults: [PhotoItem] {
         let q = query.trimmingCharacters(in: .whitespaces)
@@ -148,7 +148,7 @@ struct AllPhotosView: View {
     }
 
     private func readAll() async {
-        let list = photos.filter { !$0.textRecognized }
+        let list = photos.filter { !$0.textRecognized && !$0.isVideo }
         ocrProgress = (0, list.count)
         for (i, item) in list.enumerated() {
             await TextRecognizer.run(on: item, context: context)

@@ -35,7 +35,36 @@ final class SwipeSorter: ObservableObject {
     var canUndo: Bool { !history.isEmpty }
 
     /// 写真へのアクセスを確認して、仕分けを始める
-    func start(excluding imported: Set<String>) async {
+    /// "added"＝写真アプリに保存した順（新しい順）、"taken"＝撮影日の新しい順
+    private(set) var order = "added"
+
+    private func asset(at i: Int) -> PHAsset? {
+        guard let fetch, i >= 0, i < fetch.count else { return nil }
+        return order == "added" ? fetch.object(at: fetch.count - 1 - i) : fetch.object(at: i)
+    }
+
+    private func makeFetch() {
+        let options = PHFetchOptions()
+        options.predicate = NSPredicate(format: "mediaType == %d || mediaType == %d",
+                                        PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
+        if order == "taken" {
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        }
+        // 並べ替えを指定しないと、写真アプリに保存した順（古い順）で返る
+        fetch = PHAsset.fetchAssets(with: options)
+    }
+
+    /// 並び順を変えて、最初から表示し直す（仕分け済みは出てこない）
+    func changeOrder(_ newOrder: String) {
+        guard newOrder != order, fetch != nil else { order = newOrder; return }
+        order = newOrder
+        history.removeAll()
+        makeFetch()
+        moveToNext(from: 0)
+    }
+
+    func start(excluding imported: Set<String>, order: String) async {
+        self.order = order
         var s = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         if s == .notDetermined {
             s = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
@@ -43,9 +72,7 @@ final class SwipeSorter: ObservableObject {
         status = s
         guard s == .authorized || s == .limited else { started = true; return }
         handled.formUnion(imported)
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        fetch = PHAsset.fetchAssets(with: .image, options: options)
+        makeFetch()
         moveToNext(from: 0)
         started = true
     }
@@ -75,6 +102,17 @@ final class SwipeSorter: ObservableObject {
     func move(to folder: PhotoFolder, context: ModelContext, alsoDelete: Bool) async -> Bool {
         guard let asset = currentAsset else { return false }
         let idx = index
+        if asset.mediaType == .video {
+            guard let temp = await VideoFiles.export(asset: asset),
+                  let item = await VideoFiles.makeItem(from: temp, sourceAssetID: asset.localIdentifier,
+                                                       fallbackDate: asset.creationDate, folder: folder, context: context)
+            else {
+                flash("動画を読み込めませんでした（iCloudから取得できない可能性があります）")
+                return false
+            }
+            finishMove(asset: asset, idx: idx, item: item, folder: folder, alsoDelete: alsoDelete)
+            return true
+        }
         guard let data = await Self.loadData(asset) else {
             flash("写真を読み込めませんでした（iCloudから取得できない可能性があります）")
             return false
@@ -90,13 +128,17 @@ final class SwipeSorter: ObservableObject {
         )
         context.insert(item)
         try? context.save()
+        finishMove(asset: asset, idx: idx, item: item, folder: folder, alsoDelete: alsoDelete)
+        return true
+    }
+
+    private func finishMove(asset: PHAsset, idx: Int, item: PhotoItem, folder: PhotoFolder, alsoDelete: Bool) {
         handled.insert(asset.localIdentifier)
         saveHandled()
         if alsoDelete { pendingDelete.append(asset.localIdentifier) }
         history.append(.move(asset.localIdentifier, idx, item, alsoDelete))
         flash("「\(folder.name)」に入れました")
         moveToNext(from: idx + 1)
-        return true
     }
 
     /// ひとつ前の操作を取り消す
@@ -159,9 +201,9 @@ final class SwipeSorter: ObservableObject {
     private func moveToNext(from start: Int) {
         guard let fetch else { return }
         var i = max(0, start)
-        while i < fetch.count, isDone(fetch.object(at: i)) { i += 1 }
+        while i < fetch.count, let a = asset(at: i), isDone(a) { i += 1 }
         index = i
-        currentAsset = i < fetch.count ? fetch.object(at: i) : nil
+        currentAsset = asset(at: i)
         remaining = max(0, fetch.count - i)
         loadImage()
     }
@@ -183,7 +225,7 @@ final class SwipeSorter: ObservableObject {
         // 次の数枚を先に読み込んでおく
         let upper = min(index + 4, fetch.count)
         if index + 1 < upper {
-            let nexts = (index + 1..<upper).map { fetch.object(at: $0) }
+            let nexts = (index + 1..<upper).compactMap { asset(at: $0) }
             manager.startCachingImages(for: nexts, targetSize: previewSize, contentMode: .aspectFit, options: options)
         }
     }
@@ -224,6 +266,8 @@ struct SwipeSortView: View {
     private var folders: [PhotoFolder]
     @AppStorage("sortMoveDeletes") private var moveDeletes = true
     @AppStorage("recentSortFolders") private var recentRaw = ""
+    @AppStorage("sortOrder") private var sortOrder = "added"
+    @State private var previewAsset: PHAsset?
 
     @State private var drag: CGSize = .zero
     @State private var showFolders = false
@@ -266,6 +310,10 @@ struct SwipeSortView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Toggle("フォルダに入れた写真も写真アプリから削除", isOn: $moveDeletes)
+                        Picker("並び順", selection: $sortOrder) {
+                            Text("保存した順（写真アプリと同じ）").tag("added")
+                            Text("撮影日順").tag("taken")
+                        }
                     } label: {
                         Image(systemName: "gearshape")
                     }
@@ -312,7 +360,11 @@ struct SwipeSortView: View {
             }
             .task {
                 guard !sorter.started else { return }
-                await sorter.start(excluding: Set(photos.compactMap(\.sourceAssetID)))
+                await sorter.start(excluding: Set(photos.compactMap(\.sourceAssetID)), order: sortOrder)
+            }
+            .onChange(of: sortOrder) { _, newValue in sorter.changeOrder(newValue) }
+            .fullScreenCover(item: $previewAsset) { asset in
+                LibraryPreview(asset: asset)
             }
         }
     }
@@ -391,16 +443,35 @@ struct SwipeSortView: View {
                             .resizable()
                             .scaledToFit()
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay {
+                                if asset.mediaType == .video {
+                                    Image(systemName: "play.circle.fill")
+                                        .font(.system(size: 64))
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, .black.opacity(0.45))
+                                        .shadow(radius: 4)
+                                }
+                            }
+                            .overlay(alignment: .bottomTrailing) {
+                                if asset.mediaType == .video {
+                                    VideoBadge(text: Self.durationText(asset.duration)).padding(8)
+                                }
+                            }
                     } else {
                         ProgressView()
                     }
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { previewAsset = asset }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if let date = asset.creationDate {
-                    Text(date.formatted(date: .long, time: .shortened))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    if let date = asset.creationDate {
+                        Text(date.formatted(date: .long, time: .shortened))
+                    }
+                    Text(asset.mediaType == .video ? "・タップで再生" : "・タップで拡大")
                 }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             .padding(12)
 
@@ -436,7 +507,13 @@ struct SwipeSortView: View {
                 }
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("写真。左にスワイプで削除、右にスワイプでフォルダへ、上にスワイプで残す")
+        .accessibilityLabel("写真または動画。タップで拡大・再生。左にスワイプで削除、右にスワイプでフォルダへ、上にスワイプで残す")
+    }
+
+    static func durationText(_ seconds: Double) -> String {
+        let t = Int(seconds.rounded())
+        return t >= 3600 ? String(format: "%d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
+                         : String(format: "%d:%02d", t / 60, t % 60)
     }
 
     private func stamp(_ text: String, color: Color, angle: Double) -> some View {
@@ -592,6 +669,51 @@ struct FolderChooser: View {
                 Text(folder.name).foregroundStyle(.primary)
                 Spacer()
                 Text("\(folder.photoArray.count)枚").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+
+extension PHAsset: @retroactive Identifiable {
+    public var id: String { localIdentifier }
+}
+
+/// 仕分け中の写真を大きく表示（ピンチで拡大）／動画を再生
+struct LibraryPreview: View {
+    let asset: PHAsset
+    @Environment(\.dismiss) private var dismiss
+    @State private var image: UIImage?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if asset.mediaType == .video {
+                    LibraryVideoPlayer(asset: asset)
+                } else if let image {
+                    ZoomableImage(image: image).ignoresSafeArea(edges: .bottom)
+                } else {
+                    ZStack { Color.black; ProgressView().tint(.white) }
+                }
+            }
+            .background(Color.black.ignoresSafeArea())
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("閉じる") { dismiss() } }
+            }
+        }
+        .task {
+            guard asset.mediaType != .video else { return }
+            let options = PHImageRequestOptions()
+            options.isNetworkAccessAllowed = true
+            options.deliveryMode = .highQualityFormat
+            let size = CGSize(width: 3000, height: 3000)
+            image = await withCheckedContinuation { continuation in
+                PHImageManager.default().requestImage(for: asset, targetSize: size, contentMode: .aspectFit, options: options) { img, _ in
+                    continuation.resume(returning: img)
+                }
             }
         }
     }

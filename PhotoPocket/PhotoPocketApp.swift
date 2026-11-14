@@ -7,6 +7,8 @@ struct PhotoPocketApp: App {
     @State private var container: ModelContainer = PhotoPocketApp.makeContainer(iCloud: Store.isUnlockedCached)
     @State private var containerIsCloud: Bool = Store.isUnlockedCached
     @AppStorage("appearance") private var appearanceRaw = AppearanceMode.light.rawValue
+    @Environment(\.scenePhase) private var scenePhase
+    private let syncTimer = Timer.publish(every: 90, on: .main, in: .common).autoconnect()
 
     var body: some Scene {
         WindowGroup {
@@ -21,6 +23,14 @@ struct PhotoPocketApp: App {
                     guard unlocked != containerIsCloud else { return }
                     container = PhotoPocketApp.makeContainer(iCloud: unlocked)
                     containerIsCloud = unlocked
+                    VideoSync.shared.configure(container: container, cloud: unlocked)
+                }
+                .task { VideoSync.shared.configure(container: container, cloud: containerIsCloud) }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { VideoSync.shared.kick() }
+                }
+                .onReceive(syncTimer) { _ in
+                    if scenePhase == .active { VideoSync.shared.kick() }
                 }
         }
         .modelContainer(container)

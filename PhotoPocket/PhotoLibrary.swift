@@ -3,6 +3,7 @@ import Photos
 import PhotosUI
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 enum LibraryError: LocalizedError {
     case noFullAccess
@@ -64,7 +65,25 @@ enum PhotoLibrary {
     }
 
     /// アプリ内の写真を写真アプリに書き出す（追加のみの権限でOK）
-    static func exportToLibrary(datas: [Data]) async throws {
+    static func exportToLibrary(items: [PhotoItem]) async throws {
+        var photos: [Data] = []
+        var videos: [URL] = []
+        var missing = 0
+        for item in items {
+            if item.isVideo {
+                if let url = VideoFiles.localURL(for: item) { videos.append(url) } else { missing += 1 }
+            } else if let data = item.imageData {
+                photos.append(data)
+            }
+        }
+        try await exportToLibrary(datas: photos, videoURLs: videos)
+        if missing > 0 {
+            throw NSError(domain: "PhotoPocket", code: 2, userInfo: [NSLocalizedDescriptionKey:
+                "\(missing)本の動画は、まだこのiPhoneに届いていないため書き出せませんでした。ほかは書き出しました。"])
+        }
+    }
+
+    static func exportToLibrary(datas: [Data], videoURLs: [URL] = []) async throws {
         var status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
         if status == .notDetermined {
             status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
@@ -76,6 +95,12 @@ enum PhotoLibrary {
             for data in datas {
                 let request = PHAssetCreationRequest.forAsset()
                 request.addResource(with: .photo, data: data, options: nil)
+            }
+            for url in videoURLs {
+                let request = PHAssetCreationRequest.forAsset()
+                let options = PHAssetResourceCreationOptions()
+                options.shouldMoveFile = false
+                request.addResource(with: .video, fileURL: url, options: options)
             }
         }
     }
@@ -100,6 +125,20 @@ final class PhotoImporter: ObservableObject {
         var result = Result()
 
         for pickerItem in pickerItems {
+            // 動画
+            if pickerItem.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+                if let video = try? await pickerItem.loadTransferable(type: PickedVideo.self),
+                   let item = await VideoFiles.makeItem(from: video.url, sourceAssetID: pickerItem.itemIdentifier,
+                                                        fallbackDate: pickerItem.itemIdentifier.flatMap {
+                                                            PHAsset.fetchAssets(withLocalIdentifiers: [$0], options: nil).firstObject?.creationDate
+                                                        }, folder: folder, context: context) {
+                    result.importedItems.append(item)
+                } else {
+                    result.failed += 1
+                }
+                done += 1
+                continue
+            }
             do {
                 guard let data = try await pickerItem.loadTransferable(type: Data.self) else {
                     result.failed += 1

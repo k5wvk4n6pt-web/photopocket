@@ -30,14 +30,24 @@ struct PhotoViewer: View {
         NavigationStack {
             TabView(selection: $currentID) {
                 ForEach(photos) { item in
-                    FullImagePage(item: item)
-                        .tag(item.id)
+                    Group {
+                        if item.isVideo {
+                            VideoPage(item: item, isCurrent: item.id == currentID)
+                        } else {
+                            FullImagePage(item: item)
+                        }
+                    }
+                    .tag(item.id)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .task(id: currentID) {
                 shareURL = nil
                 guard let current else { return }
+                if current.isVideo {
+                    shareURL = VideoFiles.shareURL(for: current)
+                    return
+                }
                 let id = current.id, data = current.imageData, ext = current.fileExtension, date = current.displayDate
                 shareURL = await Task.detached { PhotoStorage.temporaryFile(id: id, data: data, fileExtension: ext, date: date) }.value
             }
@@ -67,11 +77,13 @@ struct PhotoViewer: View {
                             Image(systemName: "square.and.arrow.up").foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button { showText = true } label: {
-                            Image(systemName: "text.viewfinder")
+                        if !current.isVideo {
+                            Button { showText = true } label: {
+                                Image(systemName: "text.viewfinder")
+                            }
+                            .accessibilityLabel("写真の文字を読み取る")
+                            Spacer()
                         }
-                        .accessibilityLabel("写真の文字を読み取る")
-                        Spacer()
                         Button {
                             memoText = current.memo
                             editingMemo = true
@@ -79,9 +91,11 @@ struct PhotoViewer: View {
                             Image(systemName: current.memo.isEmpty ? "text.bubble" : "text.bubble.fill")
                         }
                         Spacer()
-                        Button { rotate(current) } label: { Image(systemName: "rotate.right") }
-                            .accessibilityLabel("右に回転")
-                        Spacer()
+                        if !current.isVideo {
+                            Button { rotate(current) } label: { Image(systemName: "rotate.right") }
+                                .accessibilityLabel("右に回転")
+                            Spacer()
+                        }
                         Button { showMove = true } label: { Image(systemName: "folder") }
                         Spacer()
                         Menu {
@@ -198,8 +212,7 @@ struct PhotoViewer: View {
 
     private func export(_ item: PhotoItem) async {
         do {
-            guard let data = item.imageData else { return }
-            try await PhotoLibrary.exportToLibrary(datas: [data])
+            try await PhotoLibrary.exportToLibrary(items: [item])
             alertMessage = "写真アプリに書き出しました。"
         } catch {
             alertMessage = error.localizedDescription

@@ -57,7 +57,7 @@ struct FolderView: View {
         .safeAreaInset(edge: .bottom) {
             if !selecting && !photos.isEmpty {
                 Button { showPicker = true } label: {
-                    Label("写真を取り込む", systemImage: "plus")
+                    Label("写真・動画を取り込む", systemImage: "plus")
                 }
                 .buttonStyle(BigButtonStyle())
                 .padding(.bottom, 10)
@@ -71,7 +71,7 @@ struct FolderView: View {
             selection: $pickerItems,
             maxSelectionCount: nil,
             selectionBehavior: .ordered,
-            matching: .images,
+            matching: .any(of: [.images, .videos]),
             preferredItemEncoding: .current,
             photoLibrary: .shared()
         )
@@ -238,10 +238,10 @@ struct FolderView: View {
         FriendlyEmptyView(
             symbol: "photo.badge.plus",
             title: "まだ写真がありません",
-            message: "写真アプリから選んで取り込みましょう。\n取り込んだあと、写真アプリの写真を\n消すか残すか選べます。"
+            message: "写真アプリから写真や動画を選んで取り込みましょう。\n取り込んだあと、写真アプリの写真を\n消すか残すか選べます。"
         ) {
             Button { showPicker = true } label: {
-                Label("写真を取り込む", systemImage: "plus")
+                Label("写真・動画を取り込む", systemImage: "plus")
             }
             .buttonStyle(BigButtonStyle())
         }
@@ -333,7 +333,7 @@ struct FolderView: View {
         busy = true
         defer { busy = false }
         do {
-            try await PhotoLibrary.exportToLibrary(datas: items.compactMap(\.imageData))
+            try await PhotoLibrary.exportToLibrary(items: items)
             alertMessage = "\(items.count)枚を写真アプリに書き出しました。"
         } catch {
             alertMessage = error.localizedDescription
@@ -373,6 +373,11 @@ struct ThumbnailCell: View {
                         .padding(4)
                         .background(.black.opacity(0.45), in: Circle())
                         .padding(4)
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if item.isVideo && !selecting {
+                    VideoBadge(text: item.durationText).padding(5)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
