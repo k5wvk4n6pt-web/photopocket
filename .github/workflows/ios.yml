@@ -43,7 +43,7 @@ jobs:
       # キーIDとIssuer IDは、それだけでは使えない識別番号なのでここに書いています（秘密の鍵 .p8 は Secrets に保存）
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID || '92PK3R5RPW' }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID || 'e3178071-c454-4e88-8acb-00967574cc49' }}
-      TEAM_ID: ${{ secrets.TEAM_ID }}
+      TEAM_ID: ${{ secrets.TEAM_ID || 'C4C5896L77' }}
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
