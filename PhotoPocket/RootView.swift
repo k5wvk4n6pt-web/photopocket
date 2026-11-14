@@ -158,6 +158,7 @@ struct HomeView: View {
     @State private var showUnlock = false
     @State private var categoryToDelete: PhotoCategory?
     @State private var folderToDelete: PhotoFolder?
+    @State private var showSorter = false
 
     private var uncategorized: [PhotoFolder] { allFolders.filter { $0.category == nil } }
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -178,6 +179,7 @@ struct HomeView: View {
                     welcomeView
                 } else {
                     VStack(alignment: .leading, spacing: 14) {
+                        sorterCard
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text("分類").font(.title3.weight(.heavy))
                             Text("\(categories.count)こ").font(.subheadline).foregroundStyle(.secondary)
@@ -246,6 +248,44 @@ struct HomeView: View {
         .sheet(isPresented: $showUnlock) { UnlockView().environmentObject(store) }
         .deleteCategoryDialog($categoryToDelete)
         .deleteFolderDialog($folderToDelete)
+        .fullScreenCover(isPresented: $showSorter) { SwipeSortView() }
+    }
+
+    /// iPhoneの写真をスワイプで仕分ける入口
+    private var sorterCard: some View {
+        Button { showSorter = true } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.green.opacity(0.25))
+                        .frame(width: 34, height: 40)
+                        .rotationEffect(.degrees(12))
+                        .offset(x: 8)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.red.opacity(0.22))
+                        .frame(width: 34, height: 40)
+                        .rotationEffect(.degrees(-12))
+                        .offset(x: -8)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Theme.accent)
+                        .frame(width: 34, height: 40)
+                        .overlay(Image(systemName: "hand.draw.fill").foregroundStyle(.white))
+                }
+                .frame(width: 56, height: 50)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("iPhoneの写真を仕分ける").font(.headline.weight(.heavy))
+                    Text("左で削除・右でフォルダへ。スワイプでどんどん整理")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.subheadline.bold())
+            }
+            .padding(14)
+            .card(corner: 20)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 8)
     }
 
     private var welcomeView: some View {
