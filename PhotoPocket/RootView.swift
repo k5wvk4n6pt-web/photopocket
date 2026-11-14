@@ -733,12 +733,12 @@ struct HomeHeader: View {
                     StatTile(symbol: "folder", color: Color(red: 0.85, green: 0.54, blue: 0.12),
                              value: "\(folderCount)", label: "フォルダ")
                     Button(action: onICloud) {
-                        StatTile(symbol: iCloudOn ? "checkmark.icloud" : "icloud",
+                        StatTile(symbol: iCloudOn ? "checkmark.seal" : "sparkles",
                                  color: Color(red: 0.18, green: 0.50, blue: 0.85),
-                                 value: iCloudOn ? "オン" : "オフ", label: "iCloud")
+                                 value: iCloudOn ? "フル版" : "無料版", label: "プラン")
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint(iCloudOn ? "設定を開きます" : "iCloud同期の案内を開きます")
+                    .accessibilityHint(iCloudOn ? "設定を開きます" : "フル版の案内を開きます")
                 }
                 .padding(.top, 16)
             }
@@ -749,7 +749,7 @@ struct HomeHeader: View {
     }
 }
 
-/// 数字のカード（写真・フォルダ・iCloud）
+/// 数字のカード（写真・フォルダ・プラン）
 struct StatTile: View {
     let symbol: String
     let color: Color
@@ -768,6 +768,8 @@ struct StatTile: View {
                 }
             Text(value)
                 .font(.title3.weight(.heavy))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .padding(.top, 2)
             Text(label)
                 .font(.caption)

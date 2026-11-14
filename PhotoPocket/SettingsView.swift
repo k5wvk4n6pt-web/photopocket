@@ -44,7 +44,7 @@ struct SettingsView: View {
                     Text(store.isUnlocked ? "フル版" : "無料版")
                 } footer: {
                     Text(store.isUnlocked
-                         ? "フォルダ分けとメモは、あなたのiCloudに自動で保存されます。同じApple IDのiPhone・iPadで同じ内容が見られ、アプリを入れ直しても戻ります。"
+                         ? "iCloudに同期するのは、フォルダ分けとメモだけです。同じApple IDのiPhone・iPadで同じフォルダ分けが見られ、アプリを入れ直しても戻ります。\n写真そのもののバックアップは、iPhoneの「設定」→ iCloud →「写真」（iCloud写真）で行われます。"
                          : "無料版では、フォルダ\(FreeLimit.folders)つ・写真\(FreeLimit.photos)枚まで仕分けできます。フル版では、枚数・フォルダが無制限になり、iCloud同期・Face IDロック・文字の読み取りとAIのまとめが使えます。")
                 }
 
@@ -138,11 +138,11 @@ struct SettingsView: View {
             switch status {
             case .available:
                 iCloudOK = true
-                iCloudText = "iCloudに同期しています"
+                iCloudText = "フォルダ分けとメモをiCloudに同期しています"
             case .noAccount:
-                iCloudText = "iCloudにサインインしていません。「設定」アプリでサインインすると同期されます（それまではこのiPhoneにだけ保存）"
+                iCloudText = "iCloudにサインインしていません。「設定」アプリでサインインするとフォルダ分けが同期されます"
             case .restricted:
-                iCloudText = "iCloudが制限されています（このiPhoneにだけ保存）"
+                iCloudText = "iCloudが制限されているため、フォルダ分けはこのiPhoneにだけ保存しています"
             case .temporarilyUnavailable:
                 iCloudText = "iCloudに一時的に接続できません。あとで自動で同期されます"
             default:
