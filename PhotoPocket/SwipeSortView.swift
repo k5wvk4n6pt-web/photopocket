@@ -225,7 +225,7 @@ final class SwipeSorter: ObservableObject {
         // 次の数枚を先に読み込んでおく
         let upper = min(index + 4, fetch.count)
         if index + 1 < upper {
-            let nexts = (index + 1..<upper).compactMap { asset(at: $0) }
+            let nexts = (index + 1..<upper).compactMap { self.asset(at: $0) }
             manager.startCachingImages(for: nexts, targetSize: previewSize, contentMode: .aspectFit, options: options)
         }
     }
