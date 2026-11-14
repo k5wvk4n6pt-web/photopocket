@@ -53,5 +53,5 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
         com.apple.developer.icloud-container-identifiers:
-          - $(ICLOUD_CONTAINER)
+          - iCloud.com.k5wvk4n6pt.photopocket
         com.apple.developer.icloud-container-environment: $(CLOUDKIT_ENV)

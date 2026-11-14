@@ -67,6 +67,10 @@ jobs:
             --create
           keychain add-certificates
           xcode-project use-profiles
+          echo "---- プロファイルの中身（iCloud部分） ----"
+          for f in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/"*.mobileprovision; do
+            security cms -D -i "$f" > /tmp/p.plist && /usr/libexec/PlistBuddy -c "Print :Entitlements" /tmp/p.plist | grep -i -A3 "icloud\|aps" || true
+          done
       - name: Build IPA
         run: |
           xcode-project build-ipa \
