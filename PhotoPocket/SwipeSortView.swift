@@ -10,6 +10,7 @@ final class SwipeSorter: ObservableObject {
         case delete(String, Int)
         case skip(String, Int)
         case move(String, Int, PhotoItem, Bool)
+        case batch([Action])
     }
 
     @Published var status: PHAuthorizationStatus = .notDetermined
@@ -19,6 +20,9 @@ final class SwipeSorter: ObservableObject {
     @Published var pendingDelete: [String] = []
     @Published var remaining = 0
     @Published var notice: String?
+    /// 一覧モード用：まだ仕分けていない写真・動画
+    @Published var gridAssets: [PHAsset] = []
+    @Published var progressText: String?
 
     private var fetch: PHFetchResult<PHAsset>?
     private var index = 0
@@ -98,25 +102,14 @@ final class SwipeSorter: ObservableObject {
         moveToNext(from: index + 1)
     }
 
-    /// 右スワイプ：フォルダに取り込む
-    func move(to folder: PhotoFolder, context: ModelContext, alsoDelete: Bool) async -> Bool {
-        guard let asset = currentAsset else { return false }
-        let idx = index
+    /// 写真アプリの写真・動画をアプリに取り込む
+    private func importAsset(_ asset: PHAsset, to folder: PhotoFolder, context: ModelContext) async -> PhotoItem? {
         if asset.mediaType == .video {
-            guard let temp = await VideoFiles.export(asset: asset),
-                  let item = await VideoFiles.makeItem(from: temp, sourceAssetID: asset.localIdentifier,
-                                                       fallbackDate: asset.creationDate, folder: folder, context: context)
-            else {
-                flash("動画を読み込めませんでした（iCloudから取得できない可能性があります）")
-                return false
-            }
-            finishMove(asset: asset, idx: idx, item: item, folder: folder, alsoDelete: alsoDelete)
-            return true
+            guard let temp = await VideoFiles.export(asset: asset) else { return nil }
+            return await VideoFiles.makeItem(from: temp, sourceAssetID: asset.localIdentifier,
+                                             fallbackDate: asset.creationDate, folder: folder, context: context)
         }
-        guard let data = await Self.loadData(asset) else {
-            flash("写真を読み込めませんでした（iCloudから取得できない可能性があります）")
-            return false
-        }
+        guard let data = await Self.loadData(asset) else { return nil }
         let prepared = await Task.detached { PhotoStorage.prepare(data: data) }.value
         let item = PhotoItem(
             imageData: data,
@@ -128,8 +121,68 @@ final class SwipeSorter: ObservableObject {
         )
         context.insert(item)
         try? context.save()
+        return item
+    }
+
+    /// 右スワイプ：フォルダに取り込む
+    func move(to folder: PhotoFolder, context: ModelContext, alsoDelete: Bool) async -> Bool {
+        guard let asset = currentAsset else { return false }
+        let idx = index
+        guard let item = await importAsset(asset, to: folder, context: context) else {
+            flash("読み込めませんでした（iCloudから取得できない可能性があります）")
+            return false
+        }
         finishMove(asset: asset, idx: idx, item: item, folder: folder, alsoDelete: alsoDelete)
         return true
+    }
+
+    // MARK: - 一覧モードでまとめて仕分け
+
+    /// まとめて削除予定に入れる
+    func markDelete(_ assets: [PHAsset]) {
+        guard !assets.isEmpty else { return }
+        var actions: [Action] = []
+        for a in assets where !isDone(a) {
+            pendingDelete.append(a.localIdentifier)
+            actions.append(.delete(a.localIdentifier, index))
+        }
+        history.append(.batch(actions))
+        flash("\(actions.count)枚を削除予定に入れました")
+        moveToNext(from: index)
+    }
+
+    /// まとめて写真アプリに残す
+    func skip(_ assets: [PHAsset]) {
+        guard !assets.isEmpty else { return }
+        var actions: [Action] = []
+        for a in assets where !isDone(a) {
+            handled.insert(a.localIdentifier)
+            actions.append(.skip(a.localIdentifier, index))
+        }
+        saveHandled()
+        history.append(.batch(actions))
+        flash("\(actions.count)枚を写真アプリに残しました")
+        moveToNext(from: index)
+    }
+
+    /// まとめてフォルダに取り込む
+    func move(_ assets: [PHAsset], to folder: PhotoFolder, context: ModelContext, alsoDelete: Bool) async -> Int {
+        var actions: [Action] = []
+        var failed = 0
+        for (n, a) in assets.enumerated() where !isDone(a) {
+            progressText = "取り込んでいます… \(n + 1)/\(assets.count)"
+            guard let item = await importAsset(a, to: folder, context: context) else { failed += 1; continue }
+            handled.insert(a.localIdentifier)
+            if alsoDelete { pendingDelete.append(a.localIdentifier) }
+            actions.append(.move(a.localIdentifier, index, item, alsoDelete))
+        }
+        progressText = nil
+        saveHandled()
+        if !actions.isEmpty { history.append(.batch(actions)) }
+        flash(failed > 0 ? "「\(folder.name)」に\(actions.count)枚入れました（\(failed)枚は読み込めませんでした）"
+                         : "「\(folder.name)」に\(actions.count)枚入れました")
+        moveToNext(from: index)
+        return actions.count
     }
 
     private func finishMove(asset: PHAsset, idx: Int, item: PhotoItem, folder: PhotoFolder, alsoDelete: Bool) {
@@ -144,24 +197,30 @@ final class SwipeSorter: ObservableObject {
     /// ひとつ前の操作を取り消す
     func undo(context: ModelContext) {
         guard let last = history.popLast() else { return }
-        switch last {
+        let i = revert(last, context: context)
+        saveHandled()
+        try? context.save()
+        moveToNext(from: min(i, index))
+        flash("元に戻しました")
+    }
+
+    private func revert(_ action: Action, context: ModelContext) -> Int {
+        switch action {
         case .delete(let id, let i):
             pendingDelete.removeAll { $0 == id }
-            moveToNext(from: i)
+            return i
         case .skip(let id, let i):
             handled.remove(id)
-            saveHandled()
-            moveToNext(from: i)
+            return i
         case .move(let id, let i, let item, let deleted):
             ThumbnailCache.shared.remove(item.id.uuidString)
             context.delete(item)
-            try? context.save()
             handled.remove(id)
-            saveHandled()
             if deleted { pendingDelete.removeAll { $0 == id } }
-            moveToNext(from: i)
+            return i
+        case .batch(let actions):
+            return actions.reversed().map { revert($0, context: context) }.min() ?? index
         }
-        flash("元に戻しました")
     }
 
     /// 削除予定の写真を、写真アプリからまとめて削除する
@@ -190,6 +249,7 @@ final class SwipeSorter: ObservableObject {
     func clearPending() {
         pendingDelete = []
         history.removeAll { if case .delete = $0 { return true } else { return false } }
+        refreshGrid()
     }
 
     // MARK: - 内部
@@ -205,7 +265,18 @@ final class SwipeSorter: ObservableObject {
         index = i
         currentAsset = asset(at: i)
         remaining = max(0, fetch.count - i)
+        refreshGrid()
         loadImage()
+    }
+
+    private func refreshGrid() {
+        guard let fetch else { gridAssets = []; return }
+        var list: [PHAsset] = []
+        list.reserveCapacity(fetch.count)
+        for i in 0..<fetch.count {
+            if let a = asset(at: i), !isDone(a) { list.append(a) }
+        }
+        gridAssets = list
     }
 
     private func loadImage() {
@@ -268,6 +339,8 @@ struct SwipeSortView: View {
     @AppStorage("recentSortFolders") private var recentRaw = ""
     @AppStorage("sortOrder") private var sortOrder = "added"
     @State private var previewAsset: PHAsset?
+    @AppStorage("sortGridMode") private var gridMode = false
+    @State private var gridSelection: Set<String> = []
 
     @State private var drag: CGSize = .zero
     @State private var showFolders = false
@@ -286,9 +359,21 @@ struct SwipeSortView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
+                Picker("仕分けかた", selection: $gridMode) {
+                    Text("1枚ずつ").tag(false)
+                    Text("一覧でまとめて").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.top, 4)
                 statusBar
-                cardArea
-                if sorter.currentAsset != nil {
+                if gridMode && sorter.currentAsset != nil {
+                    gridArea
+                } else {
+                    cardArea
+                }
+                if gridMode && sorter.currentAsset != nil {
+                    gridActions
+                } else if sorter.currentAsset != nil {
                     Text("← 左で削除　　右でフォルダへ →　　↑ 上で残す")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.secondary)
@@ -320,7 +405,7 @@ struct SwipeSortView: View {
                 }
             }
             .overlay {
-                if busy { ProgressOverlay(text: "取り込んでいます…") }
+                if busy { ProgressOverlay(text: sorter.progressText ?? "取り込んでいます…") }
             }
             .overlay(alignment: .top) {
                 if let notice = sorter.notice {
@@ -374,7 +459,7 @@ struct SwipeSortView: View {
     private var statusBar: some View {
         HStack {
             if sorter.currentAsset != nil {
-                Text("あと約\(sorter.remaining)枚")
+                Text(gridMode ? "未仕分け \(sorter.gridAssets.count)枚" : "あと約\(sorter.remaining)枚")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.secondary)
             }
@@ -549,6 +634,56 @@ struct SwipeSortView: View {
         }
     }
 
+    // MARK: - 一覧モード
+
+    private var selectedAssets: [PHAsset] {
+        sorter.gridAssets.filter { gridSelection.contains($0.localIdentifier) }
+    }
+
+    private var gridArea: some View {
+        LibraryGrid(assets: sorter.gridAssets, selected: $gridSelection) { asset in
+            previewAsset = asset
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxHeight: .infinity)
+    }
+
+    private var gridActions: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text(gridSelection.isEmpty ? "タップか、横になぞって選択・長押しで拡大" : "\(gridSelection.count)枚を選択中")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if !gridSelection.isEmpty {
+                    Button("選択解除") { gridSelection = [] }
+                        .font(.caption.weight(.bold))
+                }
+            }
+            if !recentFolders.isEmpty { recentRow.disabled(gridSelection.isEmpty).opacity(gridSelection.isEmpty ? 0.45 : 1) }
+            HStack(spacing: 14) {
+                circleButton("arrow.uturn.backward", label: "戻す", color: .gray, size: 46) {
+                    sorter.undo(context: context)
+                }
+                .disabled(!sorter.canUndo)
+                .opacity(sorter.canUndo ? 1 : 0.4)
+                Group {
+                    circleButton("xmark", label: "削除", color: .red, size: 56) {
+                        sorter.markDelete(selectedAssets)
+                        gridSelection = []
+                    }
+                    circleButton("arrow.up", label: "残す", color: .blue, size: 50) {
+                        sorter.skip(selectedAssets)
+                        gridSelection = []
+                    }
+                    circleButton("folder.fill", label: "フォルダへ", color: .green, size: 56) { swipeRight() }
+                }
+                .disabled(gridSelection.isEmpty)
+                .opacity(gridSelection.isEmpty ? 0.4 : 1)
+            }
+        }
+    }
+
     private var actionButtons: some View {
         HStack(spacing: 14) {
             circleButton("arrow.uturn.backward", label: "戻す", color: .gray, size: 50) {
@@ -609,7 +744,15 @@ struct SwipeSortView: View {
 
     private func doMove(_ folder: PhotoFolder) async {
         busy = true
-        let ok = await sorter.move(to: folder, context: context, alsoDelete: moveDeletes)
+        let ok: Bool
+        if gridMode {
+            let list = selectedAssets
+            guard !list.isEmpty else { busy = false; return }
+            ok = await sorter.move(list, to: folder, context: context, alsoDelete: moveDeletes) > 0
+            gridSelection = []
+        } else {
+            ok = await sorter.move(to: folder, context: context, alsoDelete: moveDeletes)
+        }
         busy = false
         if ok {
             var ids = recentRaw.split(separator: ",").map(String.init).filter { $0 != folder.id.uuidString }
