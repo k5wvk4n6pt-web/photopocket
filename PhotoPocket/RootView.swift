@@ -664,7 +664,8 @@ struct FolderIllustration: View {
                 // 写真
                 ZStack {
                     RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white)
-                    Group {
+                    // 縦長の写真でも枠からはみ出さないよう、枠の大きさに切り抜く
+                    Color.clear.overlay {
                         if let image {
                             Image(uiImage: image).resizable().scaledToFill()
                         } else {
@@ -680,6 +681,7 @@ struct FolderIllustration: View {
                     .padding(5)
                 }
                 .frame(width: w * 0.56, height: h * 0.64)
+                .clipped()
                 .rotationEffect(.degrees(-6))
                 .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
                 .offset(x: w * 0.24, y: h * 0.18)
