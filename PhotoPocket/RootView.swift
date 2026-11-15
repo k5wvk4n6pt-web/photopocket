@@ -418,10 +418,20 @@ struct CategoryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { editingFolder = .new(category) } label: { Label("フォルダを追加", systemImage: "folder.badge.plus") }
-                    Button { showFolderReorder = true } label: { Label("フォルダの編集・並び替え", systemImage: "arrow.up.arrow.down") }
-                        .disabled(category.folderArray.count < 1)
-                    Button { editingCategory = .edit(category) } label: { Label("分類を編集", systemImage: "pencil") }
-                    Button(role: .destructive) { categoryToDelete = category } label: { Label("分類を削除", systemImage: "trash") }
+                    Menu {
+                        ForEach(category.sortedFolders) { f in
+                            Button { editingFolder = .edit(f) } label: { Label(f.name, systemImage: "folder") }
+                        }
+                    } label: { Label("フォルダを編集", systemImage: "pencil") }
+                    .disabled(category.folderArray.isEmpty)
+                    Button { showFolderReorder = true } label: { Label("フォルダを並び替え", systemImage: "arrow.up.arrow.down") }
+                        .disabled(category.folderArray.count < 2)
+                    Menu {
+                        ForEach(category.sortedFolders) { f in
+                            Button(role: .destructive) { folderToDelete = f } label: { Label(f.name, systemImage: "folder") }
+                        }
+                    } label: { Label("フォルダを削除", systemImage: "trash") }
+                    .disabled(category.folderArray.isEmpty)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
