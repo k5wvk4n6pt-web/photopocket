@@ -25,10 +25,30 @@ enum Summarizer {
             書かれていないことは付け足さないでください。
             """)
             let response = try await session.respond(to: "次の文章を要約してください。\n\n" + String(text.prefix(2000)))
-            return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return clean(response.content)
         }
         #endif
         throw NSError(domain: "PhotoPocket", code: 2, userInfo: [NSLocalizedDescriptionKey: "このiPhoneではAIの要約を使えません。"])
+    }
+
+    /// AIが付けがちな「**太字**」や「*　」の箇条書き記号を、読みやすい形に直す
+    static func clean(_ text: String) -> String {
+        var lines: [String] = []
+        for raw in text.components(separatedBy: .newlines) {
+            var line = raw.replacingOccurrences(of: "**", with: "")
+                .replacingOccurrences(of: "__", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            if line.isEmpty { continue }
+            for mark in ["* ", "- ", "• ", "＊", "*\t", "-\t"] where line.hasPrefix(mark) {
+                line = "・" + String(line.dropFirst(mark.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+            if line.hasPrefix("#") {
+                line = line.drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces)
+            }
+            lines.append(line)
+        }
+        return lines.joined(separator: "\n")
     }
 }
 

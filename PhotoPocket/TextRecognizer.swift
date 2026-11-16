@@ -63,7 +63,7 @@ struct RecognizedTextSheet: View {
                             .disabled(summarizing)
                         }
                         if !summary.isEmpty {
-                            Text(summary)
+                            Text(Summarizer.clean(summary))
                                 .font(.callout)
                                 .textSelection(.enabled)
                         } else if let summaryError {
