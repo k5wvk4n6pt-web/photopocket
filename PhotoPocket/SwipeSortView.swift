@@ -467,7 +467,7 @@ struct SwipeSortView: View {
     private var statusBar: some View {
         HStack {
             if sorter.currentAsset != nil {
-                Text(gridMode ? "未仕分け \(sorter.gridAssets.count)枚" : "あと約\(sorter.remaining)枚")
+                Text("まだ仕分けていない写真 \(sorter.gridAssets.count)枚")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.secondary)
             }
