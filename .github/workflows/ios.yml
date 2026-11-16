@@ -14,11 +14,16 @@ on:
         type: choice
         options: [Production, Development]
         default: Production
+      runner:
+        description: "ビルドに使うMac（混雑時は macos-15-intel）"
+        type: choice
+        options: [macos-15, macos-15-intel, macos-26]
+        default: macos-15
 
 jobs:
   # 1) 毎回：署名なしでビルドできるか確認
   build:
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-15' }}
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
@@ -38,7 +43,7 @@ jobs:
   testflight:
     if: github.event_name == 'workflow_dispatch' && inputs.testflight
     needs: build
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-15' }}
     env:
       # キーIDとIssuer IDは、それだけでは使えない識別番号なのでここに書いています（秘密の鍵 .p8 は Secrets に保存）
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID || 'e3178071-c454-4e88-8acb-00967574cc49' }}
