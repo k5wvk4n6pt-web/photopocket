@@ -3,6 +3,11 @@ import StoreKit
 
 /// フル版（年額プラン・買い切り）の案内・購入画面
 struct UnlockView: View {
+    @State private var previewPlans = false
+    /// TestFlight版（App Storeの版ではない）
+    static var isTestBuild: Bool {
+        Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+    }
     @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -47,7 +52,13 @@ struct UnlockView: View {
                     .card()
                     .padding(.horizontal, 18)
 
-                    if !store.isUnlocked {
+                    if store.isUnlocked && Self.isTestBuild && !previewPlans {
+                        // TestFlightで購入済みでも、審査用スクリーンショットのためにプラン画面を見られるように
+                        Button("プランの画面を見る（テスト版のみ）") { previewPlans = true }
+                            .font(.footnote.bold())
+                    }
+
+                    if !store.isUnlocked || previewPlans {
                         VStack(spacing: 12) {
                             planButton(
                                 title: "年額プラン",
