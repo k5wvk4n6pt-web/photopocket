@@ -97,6 +97,10 @@ struct SettingsView: View {
                     }
                 }
 
+                if UnlockView.isTestBuild {
+                    SyncDiagnosticsSection()
+                }
+
                 Section("保存状況") {
                     LabeledContent("写真の枚数", value: "\(photos.filter { !$0.isVideo }.count)枚")
                     LabeledContent("動画の本数", value: "\(photos.filter(\.isVideo).count)本")

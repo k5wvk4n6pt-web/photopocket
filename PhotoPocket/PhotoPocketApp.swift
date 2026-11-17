@@ -74,11 +74,19 @@ struct PhotoPocketApp: App {
         if iCloud {
             do {
                 let config = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
-                return try ModelContainer(for: schema, configurations: config)
+                let c = try ModelContainer(for: schema, configurations: config)
+                Task { @MainActor in
+                    SyncDiagnostics.shared.containerMode = "iCloud同期あり"
+                    SyncDiagnostics.shared.containerError = nil
+                }
+                return c
             } catch {
                 print("iCloud同期を開始できませんでした: \(error)")
+                let message = "\(error)"
+                Task { @MainActor in SyncDiagnostics.shared.containerError = message }
             }
         }
+        Task { @MainActor in SyncDiagnostics.shared.containerMode = iCloud ? "この端末だけ（iCloud開始に失敗）" : "この端末だけ" }
         let config = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
         return try! ModelContainer(for: schema, configurations: config)
     }
