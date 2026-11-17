@@ -34,12 +34,27 @@ final class SyncDiagnostics: ObservableObject {
             @unknown default: kind = "その他"
             }
             let e = Event(kind: kind, time: event.endDate ?? Date(), ok: event.succeeded,
-                          error: event.error.map { "\($0)" })
+                          error: event.error.map { SyncDiagnostics.describe($0) })
             Task { @MainActor in
                 SyncDiagnostics.shared.events.insert(e, at: 0)
                 if SyncDiagnostics.shared.events.count > 8 { SyncDiagnostics.shared.events.removeLast() }
             }
         }
+    }
+
+    /// 「一部が失敗」のときは、中の個別のエラーも見えるようにする
+    nonisolated static func describe(_ error: Error) -> String {
+        guard let ck = error as? CKError else { return "\(error)" }
+        var text = "CKError \(ck.code.rawValue)"
+        if let partial = ck.partialErrorsByItemID {
+            let samples = Set(partial.values.map { e -> String in
+                let c = e as? CKError
+                let server = (e as NSError).userInfo["ServerErrorDescription"] as? String
+                return "[\(c?.code.rawValue ?? -1)] \(server ?? e.localizedDescription)"
+            })
+            text += "（\(partial.count)件）\n" + samples.prefix(3).joined(separator: "\n")
+        }
+        return text
     }
 
     func refresh() async {
