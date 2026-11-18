@@ -630,14 +630,15 @@ struct CategoryCard: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         // 白一色にせず、分類の色をやさしく重ねる（左上は白、右下ほどその色）
-        .background(
-            ZStack {
-                Decor.glass
-                LinearGradient(colors: [accent.opacity(0.04), accent.opacity(0.16)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-            },
-            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
-        )
+        .background {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Decor.glass)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(LinearGradient(colors: [accent.opacity(0.04), accent.opacity(0.16)],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing))
+                )
+        }
         .overlay(alignment: .bottomTrailing) {
             CornerCloud(color: accent)
                 .offset(x: 24, y: 24)
