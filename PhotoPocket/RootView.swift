@@ -252,9 +252,19 @@ struct HomeView: View {
                     .padding(.top, 4)
                     .padding(.bottom, 30)
                 }
+                // 下の小花
+                HStack {
+                    LittleFlower(color: Decor.peach, size: 20)
+                    LittleFlower(color: Decor.pink.opacity(0.7), size: 14).offset(y: 8)
+                    Spacer()
+                    LittleFlower(color: Decor.pink.opacity(0.7), size: 14).offset(y: 8)
+                    LittleFlower(color: Decor.peach, size: 20)
+                }
+                .padding(.horizontal, 22)
+                .padding(.bottom, 20)
             }
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(HomeBackdrop())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $editingCategory) { CategoryEditor(target: $0) }
         .sheet(item: $editingFolder) { FolderEditor(target: $0) }
@@ -275,41 +285,49 @@ struct HomeView: View {
         }
     }
 
-    /// iPhoneの写真をスワイプで仕分ける入口
+    /// iPhoneの写真をスワイプで仕分ける入口（スマホのイラスト＋ひょっこりくま）
     private var sorterCard: some View {
         Button { showSorter = true } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.green.opacity(0.25))
-                        .frame(width: 34, height: 40)
-                        .rotationEffect(.degrees(12))
-                        .offset(x: 8)
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.red.opacity(0.22))
-                        .frame(width: 34, height: 40)
-                        .rotationEffect(.degrees(-12))
-                        .offset(x: -8)
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Theme.accent)
-                        .frame(width: 34, height: 40)
-                        .overlay(Image(systemName: "hand.draw.fill").foregroundStyle(.white))
-                }
-                .frame(width: 56, height: 50)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("iPhoneの写真を仕分ける").font(.headline.weight(.heavy))
+            HStack(spacing: 10) {
+                SorterPhoneIllustration()
+                    .padding(.leading, -6)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("iPhoneの写真を仕分ける")
+                        .font(.system(size: 19, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     Text("左で削除・右でフォルダへ。スワイプでどんどん整理")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .padding(.top, 18)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.subheadline.bold())
+                Image(systemName: "chevron.right").font(.headline.bold())
             }
-            .padding(14)
-            .card(corner: 20)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 150)
+            .background(
+                LinearGradient(colors: [Color(red: 1.0, green: 0.93, blue: 0.93).opacity(0.95), Color(red: 1.0, green: 0.86, blue: 0.89).opacity(0.95)],
+                               startPoint: .leading, endPoint: .trailing),
+                in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+            )
+            .overlay(alignment: .bottomTrailing) {
+                CornerCloud(color: .white).scaleEffect(1.6).offset(x: 10, y: 14)
+                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            }
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Decor.glassStroke, lineWidth: 1.5))
+            .shadow(color: Decor.pink.opacity(0.15), radius: 12, x: 0, y: 6)
+            .overlay(alignment: .topTrailing) {
+                PeekingBear()
+                    .scaleEffect(0.8)
+                    .offset(x: -14, y: -46)
+            }
+            .colorScheme(.light)
         }
         .buttonStyle(.plain)
-        .padding(.top, 8)
+        .padding(.top, 34)
     }
 
     private var welcomeView: some View {
@@ -539,50 +557,115 @@ extension View {
 
 // MARK: - カード
 
-/// 分類のカード（ホーム）
+/// 分類のカード（ホーム）：大きなアイコン・名前・写真3枚・飾り
 struct CategoryCard: View {
     let category: PhotoCategory
 
     var body: some View {
         let photos = category.allPhotos
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
+        let accent = category.color
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(category.color.opacity(0.16))
-                    .frame(width: 58, height: 58)
+                    .fill(accent.opacity(0.16))
+                    .frame(width: 54, height: 54)
                     .overlay {
                         Image(systemName: category.symbol)
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(category.color)
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(accent)
                     }
-                Spacer()
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(category.name)
+                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                    Text("フォルダ\(category.folderArray.count)つ・\(photos.count)枚")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .padding(.top, 6)
+                Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.subheadline.bold())
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(category.name)
-                    .font(.headline.weight(.heavy))
-                    .lineLimit(1)
-                Text("フォルダ\(category.folderArray.count)つ・\(photos.count)枚")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            HStack(spacing: -8) {
+            HStack(spacing: 6) {
                 if photos.isEmpty {
-                    RoundedRectangle(cornerRadius: 8).fill(category.color.opacity(0.14)).frame(width: 28, height: 28)
+                    ForEach(0..<3, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(accent.opacity(0.10))
+                            .aspectRatio(1, contentMode: .fit)
+                    }
                 } else {
-                    ForEach(photos.prefix(4)) { photo in
-                        MiniThumb(item: photo)
+                    ForEach(photos.prefix(3)) { photo in
+                        CardThumb(item: photo)
+                    }
+                    ForEach(0..<max(0, 3 - min(3, photos.count)), id: \.self) { _ in
+                        Color.clear.aspectRatio(1, contentMode: .fit)
                     }
                 }
             }
         }
-        .padding(14)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
-        .contentShape(RoundedRectangle(cornerRadius: Theme.corner))
+        .background(Decor.glass, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(alignment: .bottomTrailing) {
+            CornerCloud(color: accent)
+                .offset(x: 24, y: 24)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .topTrailing) {
+            CardAccent(seed: category.name, color: accent)
+                .offset(x: -34, y: 10)
+        }
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Decor.glassStroke, lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
+        .contentShape(RoundedRectangle(cornerRadius: 24))
+    }
+}
+
+/// カードの小さな飾り（分類ごとに、キラッ・ハートのどちらかが付く）
+struct CardAccent: View {
+    let seed: String
+    let color: Color
+    var body: some View {
+        let n = seed.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 997 }
+        Group {
+            if n % 2 == 0 {
+                Twinkle(color: color).rotationEffect(.degrees(40)).scaleEffect(0.8)
+            } else {
+                TinyHeart(color: color, size: 15, filled: n % 3 != 0)
+            }
+        }
+    }
+}
+
+/// 分類カードの写真（正方形・白い縁）
+struct CardThumb: View {
+    let item: PhotoItem
+    @State private var image: UIImage?
+
+    var body: some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    Theme.accentSoft
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white, lineWidth: 2))
+            .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
+            .task(id: item.id) {
+                let id = item.id, data = item.thumbData
+                image = await Task.detached { PhotoStorage.thumbnail(id: id, data: data) }.value
+            }
     }
 }
 
@@ -765,28 +848,46 @@ struct HomeHeader: View {
             }
             .foregroundStyle(Theme.ink)
 
-            Text("\(dateText) ・ \(Theme.greeting)")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(.secondary)
-            Text("フォトポケット")
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .accessibilityAddTraits(.isHeader)
+            ZStack(alignment: .topTrailing) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(dateText) ・ \(Theme.greeting)")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Text("フォトポケット")
+                        .font(.system(size: 40, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .accessibilityAddTraits(.isHeader)
+                    TitleSwoosh()
+                        .frame(width: 250, height: 22)
+                        .padding(.top, -6)
+                }
+                .padding(.trailing, 70)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                CameraIllustration()
+                    .scaleEffect(0.9)
+                    .offset(x: 26, y: -34)
+                    .allowsHitTesting(false)
+            }
 
             if showStats {
                 HStack(spacing: 10) {
                     StatTile(symbol: "photo", color: Color(red: 0.91, green: 0.34, blue: 0.49),
-                             value: "\(photoCount)", label: "写真")
+                             tint: Color(red: 1.0, green: 0.90, blue: 0.92),
+                             value: "\(photoCount)", label: "写真") { StatPhotosDecor() }
                     StatTile(symbol: "folder", color: Color(red: 0.85, green: 0.54, blue: 0.12),
-                             value: "\(folderCount)", label: "フォルダ")
+                             tint: Color(red: 1.0, green: 0.95, blue: 0.84),
+                             value: "\(folderCount)", label: "フォルダ") { StatFolderDecor() }
                     Button(action: onICloud) {
                         StatTile(symbol: iCloudOn ? "checkmark.seal" : "sparkles",
                                  color: Color(red: 0.18, green: 0.50, blue: 0.85),
-                                 value: iCloudOn ? "フル版" : "無料版", label: "プラン")
+                                 tint: Color(red: 0.90, green: 0.94, blue: 1.0),
+                                 value: iCloudOn ? "フル版" : "無料版", label: "プラン") { StatPlanDecor(unlocked: iCloudOn) }
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint(iCloudOn ? "設定を開きます" : "フル版の案内を開きます")
                 }
-                .padding(.top, 16)
+                .padding(.top, 14)
             }
         }
         .padding(.horizontal, 20)
@@ -795,36 +896,50 @@ struct HomeHeader: View {
     }
 }
 
-/// 数字のカード（写真・フォルダ・プラン）
-struct StatTile: View {
+/// 数字のカード（写真・フォルダ・プラン）：淡い色のカード＋右下の飾り
+struct StatTile<Decoration: View>: View {
     let symbol: String
     let color: Color
+    let tint: Color
     let value: String
     let label: String
+    @ViewBuilder var decoration: () -> Decoration
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(color.opacity(0.14))
-                .frame(width: 30, height: 30)
+        VStack(alignment: .leading, spacing: 6) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(color.opacity(0.16))
+                .frame(width: 36, height: 36)
                 .overlay {
                     Image(systemName: symbol)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(color)
                 }
+            Spacer(minLength: 4)
             Text(value)
-                .font(.title3.weight(.heavy))
+                .font(.system(size: 26, weight: .heavy, design: .rounded))
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(.top, 2)
+                .minimumScaleFactor(0.6)
             Text(label)
-                .font(.caption)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 3)
+        .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
+        .background(
+            LinearGradient(colors: [Decor.glass, tint.opacity(0.9)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
+        .overlay(alignment: .bottomTrailing) {
+            decoration()
+                .scaleEffect(0.75)
+                .offset(x: 10, y: 8)
+                .opacity(0.9)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .allowsHitTesting(false)
+        }
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Decor.glassStroke, lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
         .accessibilityElement(children: .combine)
     }
 }
