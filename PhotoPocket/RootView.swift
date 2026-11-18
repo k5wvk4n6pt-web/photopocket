@@ -290,10 +290,12 @@ struct HomeView: View {
         Button { showSorter = true } label: {
             HStack(spacing: 10) {
                 SorterPhoneIllustration()
-                    .padding(.leading, -6)
-                VStack(alignment: .leading, spacing: 6) {
+                    .scaleEffect(0.7)
+                    .frame(width: 74, height: 86)
+                    .padding(.leading, -4)
+                VStack(alignment: .leading, spacing: 4) {
                     Text("iPhoneの写真を仕分ける")
-                        .font(.system(size: 19, weight: .heavy, design: .rounded))
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                     Text("左で削除・右でフォルダへ。スワイプでどんどん整理")
@@ -301,13 +303,13 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.top, 18)
+                .padding(.top, 8)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").font(.headline.bold())
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, minHeight: 150)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
             .background(
                 LinearGradient(colors: [Color(red: 1.0, green: 0.93, blue: 0.93).opacity(0.95), Color(red: 1.0, green: 0.86, blue: 0.89).opacity(0.95)],
                                startPoint: .leading, endPoint: .trailing),
@@ -321,13 +323,15 @@ struct HomeView: View {
             .shadow(color: Decor.pink.opacity(0.15), radius: 12, x: 0, y: 6)
             .overlay(alignment: .topTrailing) {
                 PeekingBear()
-                    .scaleEffect(0.8)
-                    .offset(x: -14, y: -46)
+                    .scaleEffect(0.52)
+                    .frame(width: 58, height: 50)
+                    .offset(x: -22, y: -26)
+                    .allowsHitTesting(false)
             }
             .colorScheme(.light)
         }
         .buttonStyle(.plain)
-        .padding(.top, 34)
+        .padding(.top, 20)
     }
 
     private var welcomeView: some View {
@@ -564,19 +568,19 @@ struct CategoryCard: View {
     var body: some View {
         let photos = category.allPhotos
         let accent = category.color
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 9) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(accent.opacity(0.16))
-                    .frame(width: 54, height: 54)
+                    .frame(width: 42, height: 42)
                     .overlay {
                         Image(systemName: category.symbol)
-                            .font(.system(size: 26, weight: .bold))
+                            .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(accent)
                     }
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(category.name)
-                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                     Text("フォルダ\(category.folderArray.count)つ・\(photos.count)枚")
@@ -585,12 +589,13 @@ struct CategoryCard: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
-                .padding(.top, 6)
+                .padding(.top, 2)
+                .layoutPriority(1)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.subheadline.bold())
+                    .font(.footnote.bold())
                     .foregroundStyle(.secondary)
-                    .padding(.top, 4)
+                    .padding(.top, 2)
             }
             HStack(spacing: 6) {
                 if photos.isEmpty {
@@ -620,7 +625,9 @@ struct CategoryCard: View {
         }
         .overlay(alignment: .topTrailing) {
             CardAccent(seed: category.name, color: accent)
-                .offset(x: -34, y: 10)
+                .scaleEffect(0.75)
+                .offset(x: -24, y: 2)
+                .allowsHitTesting(false)
         }
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Decor.glassStroke, lineWidth: 1.5))
         .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
@@ -833,40 +840,43 @@ struct HomeHeader: View {
                     }
                 } label: {
                     Image(systemName: mode.symbol)
-                        .font(.system(size: 20, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 19, weight: .semibold))
+                        .frame(width: 40, height: 38)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("画面のモード：\(mode.label)")
                 Button(action: onSettings) {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 20, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 19, weight: .semibold))
+                        .frame(width: 40, height: 38)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("設定")
             }
             .foregroundStyle(Theme.ink)
 
-            ZStack(alignment: .topTrailing) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(dateText) ・ \(Theme.greeting)")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.secondary)
-                    Text("フォトポケット")
-                        .font(.system(size: 40, weight: .heavy, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .accessibilityAddTraits(.isHeader)
-                    TitleSwoosh()
-                        .frame(width: 250, height: 22)
-                        .padding(.top, -6)
-                }
-                .padding(.trailing, 70)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(dateText) ・ \(Theme.greeting)")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Text("フォトポケット")
+                    .font(.system(size: 31, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .accessibilityAddTraits(.isHeader)
+                TitleSwoosh()
+                    .frame(width: 205, height: 16)
+                    .padding(.top, -4)
+            }
+            .padding(.trailing, 110)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, -6)
+            // カメラと写真は重ねて置くだけ（レイアウトの高さには入れない）
+            .overlay(alignment: .topTrailing) {
                 CameraIllustration()
-                    .scaleEffect(0.9)
-                    .offset(x: 26, y: -34)
+                    .scaleEffect(0.7)
+                    .frame(width: 112, height: 98)
+                    .offset(x: 14, y: -10)
                     .allowsHitTesting(false)
             }
 
@@ -887,12 +897,12 @@ struct HomeHeader: View {
                     .buttonStyle(.plain)
                     .accessibilityHint(iCloudOn ? "設定を開きます" : "フル版の案内を開きます")
                 }
-                .padding(.top, 14)
+                .padding(.top, 16)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 18)
+        .padding(.top, 0)
+        .padding(.bottom, 6)
     }
 }
 
@@ -906,34 +916,36 @@ struct StatTile<Decoration: View>: View {
     @ViewBuilder var decoration: () -> Decoration
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+        VStack(alignment: .leading, spacing: 2) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(color.opacity(0.16))
-                .frame(width: 36, height: 36)
+                .frame(width: 30, height: 30)
                 .overlay {
                     Image(systemName: symbol)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(color)
                 }
-            Spacer(minLength: 4)
+                .padding(.bottom, 6)
             Text(value)
-                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                .font(.system(size: 22, weight: .heavy, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(label)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(colors: [Decor.glass, tint.opacity(0.9)], startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 22, style: .continuous)
         )
         .overlay(alignment: .bottomTrailing) {
             decoration()
-                .scaleEffect(0.75)
-                .offset(x: 10, y: 8)
+                .scaleEffect(0.6)
+                .frame(width: 52, height: 50)
+                .offset(x: 2, y: 4)
                 .opacity(0.9)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .allowsHitTesting(false)
