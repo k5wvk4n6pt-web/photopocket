@@ -44,8 +44,15 @@ struct HomeBackdrop: View {
                     .blur(radius: 40).offset(x: w * 0.45, y: 260)
                 // 左上の枝と葉っぱ
                 LeafSprig()
-                    .frame(width: 130, height: 110)
-                    .offset(x: -18, y: -6)
+                    .frame(width: 120, height: 100)
+                    .offset(x: -26, y: -14)
+                // 下の小花
+                Image("deco_sakura").resizable().scaledToFit()
+                    .frame(width: 34, height: 34).opacity(0.85)
+                    .position(x: 22, y: geo.size.height - 40)
+                Image("deco_flower").resizable().scaledToFit()
+                    .frame(width: 34, height: 30).opacity(0.85)
+                    .position(x: w - 22, y: geo.size.height - 44)
             }
         }
         .ignoresSafeArea()
@@ -55,26 +62,13 @@ struct HomeBackdrop: View {
 /// 枝と葉っぱ
 struct LeafSprig: View {
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Path { p in
-                p.move(to: CGPoint(x: 0, y: 92))
-                p.addQuadCurve(to: CGPoint(x: 122, y: 8), control: CGPoint(x: 52, y: 22))
-            }
-            .stroke(Decor.leaf.opacity(0.75), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
-            ForEach(Array(leaves.enumerated()), id: \.offset) { _, l in
-                Leaf()
-                    .fill(Decor.leaf.opacity(l.2))
-                    .frame(width: 30, height: 14)
-                    .rotationEffect(.degrees(l.3))
-                    .position(x: l.0, y: l.1)
-            }
-        }
-        .accessibilityHidden(true)
+        Image("deco_sprig")
+            .resizable()
+            .scaledToFit()
+            .rotationEffect(.degrees(-28))
+            .opacity(0.9)
+            .accessibilityHidden(true)
     }
-    private let leaves: [(CGFloat, CGFloat, Double, Double)] = [
-        (22, 70, 0.8, -40), (30, 48, 0.65, 25), (52, 46, 0.85, -55), (62, 26, 0.6, 15),
-        (84, 30, 0.8, -60), (96, 12, 0.6, 5), (114, 16, 0.75, -50)
-    ]
 }
 
 struct Leaf: Shape {
@@ -145,9 +139,10 @@ struct TinyHeart: View {
     var size: CGFloat = 14
     var filled = true
     var body: some View {
-        Image(systemName: filled ? "heart.fill" : "heart")
-            .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(color.opacity(0.55))
+        Image("deco_heart")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size * 1.5, height: size * 1.5)
             .accessibilityHidden(true)
     }
 }
@@ -156,14 +151,12 @@ struct TinyHeart: View {
 struct CornerCloud: View {
     var color: Color
     var body: some View {
-        ZStack {
-            Circle().frame(width: 46, height: 46).offset(x: -26, y: 10)
-            Circle().frame(width: 60, height: 60)
-            Circle().frame(width: 40, height: 40).offset(x: 28, y: 12)
-        }
-        .foregroundStyle(color.opacity(0.13))
-        .frame(width: 110, height: 60)
-        .accessibilityHidden(true)
+        Image("deco_cloud")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 110, height: 60)
+            .opacity(0.45)
+            .accessibilityHidden(true)
     }
 }
 
@@ -247,10 +240,12 @@ struct Polaroid: View {
 struct CameraIllustration: View {
     var body: some View {
         ZStack {
-            Polaroid().frame(width: 74, height: 76).rotationEffect(.degrees(-10)).offset(x: 6, y: -24)
-            Polaroid(flowers: true).frame(width: 74, height: 76).rotationEffect(.degrees(12)).offset(x: 52, y: 6)
-            CameraBody().frame(width: 92, height: 66).offset(x: -18, y: 26)
-            Twinkle(color: Decor.peach).rotationEffect(.degrees(-30)).offset(x: -60, y: -30)
+            Image("deco_polaroids").resizable().scaledToFit()
+                .frame(width: 112, height: 92)
+                .offset(x: 26, y: -18)
+            Image("deco_camera").resizable().scaledToFit()
+                .frame(width: 104, height: 90)
+                .offset(x: -22, y: 24)
         }
         .frame(width: 160, height: 140)
         .accessibilityHidden(true)
@@ -287,40 +282,11 @@ struct CameraBody: View {
 /// ひょっこり顔を出すくま
 struct PeekingBear: View {
     var body: some View {
-        let fur = Color(red: 1.0, green: 0.90, blue: 0.80)
-        let line = Decor.brown
-        ZStack {
-            // 耳
-            Group {
-                Circle().fill(fur).frame(width: 26).overlay(Circle().stroke(line, lineWidth: 2.2))
-                    .overlay(Circle().fill(Color(red: 1.0, green: 0.78, blue: 0.75)).frame(width: 12))
-                    .offset(x: -30, y: -26)
-                Circle().fill(fur).frame(width: 26).overlay(Circle().stroke(line, lineWidth: 2.2))
-                    .overlay(Circle().fill(Color(red: 1.0, green: 0.78, blue: 0.75)).frame(width: 12))
-                    .offset(x: 30, y: -26)
-            }
-            // 顔
-            Ellipse().fill(fur).frame(width: 86, height: 70).overlay(Ellipse().stroke(line, lineWidth: 2.2))
-            // 目・鼻・口
-            Circle().fill(line).frame(width: 7).offset(x: -16, y: -4)
-            Circle().fill(line).frame(width: 7).offset(x: 16, y: -4)
-            Ellipse().fill(Color.white).frame(width: 28, height: 20).offset(y: 9)
-            Ellipse().fill(line).frame(width: 9, height: 6).offset(y: 4)
-            Path { p in
-                p.move(to: CGPoint(x: 0, y: 0)); p.addQuadCurve(to: CGPoint(x: 6, y: 0), control: CGPoint(x: 3, y: 4))
-                p.addQuadCurve(to: CGPoint(x: 12, y: 0), control: CGPoint(x: 9, y: 4))
-            }
-            .stroke(line, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
-            .frame(width: 12, height: 6).offset(y: 12)
-            // ほっぺ
-            Ellipse().fill(Color(red: 1.0, green: 0.70, blue: 0.70).opacity(0.7)).frame(width: 13, height: 8).offset(x: -28, y: 8)
-            Ellipse().fill(Color(red: 1.0, green: 0.70, blue: 0.70).opacity(0.7)).frame(width: 13, height: 8).offset(x: 28, y: 8)
-            // 手（カードのふちにかけている）
-            Capsule().fill(fur).frame(width: 26, height: 18).overlay(Capsule().stroke(line, lineWidth: 2.2)).offset(x: -26, y: 34)
-            Capsule().fill(fur).frame(width: 26, height: 18).overlay(Capsule().stroke(line, lineWidth: 2.2)).offset(x: 26, y: 34)
-        }
-        .frame(width: 110, height: 96)
-        .accessibilityHidden(true)
+        Image("deco_bear")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 110, height: 96)
+            .accessibilityHidden(true)
     }
 }
 
@@ -329,31 +295,13 @@ struct PeekingBear: View {
 struct SorterPhoneIllustration: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(red: 0.45, green: 0.32, blue: 0.27))
-                .frame(width: 70, height: 116)
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white)
-                .frame(width: 62, height: 106)
-            VStack(spacing: 4) {
-                HStack(spacing: 4) { MiniLandscape().frame(width: 26, height: 26).clipShape(RoundedRectangle(cornerRadius: 4))
-                    MiniLandscape(flowers: true).frame(width: 26, height: 26).clipShape(RoundedRectangle(cornerRadius: 4)) }
-                HStack(spacing: 4) { MiniLandscape(flowers: true).frame(width: 26, height: 26).clipShape(RoundedRectangle(cornerRadius: 4))
-                    MiniLandscape().frame(width: 26, height: 26).clipShape(RoundedRectangle(cornerRadius: 4)) }
-                HStack(spacing: 4) { MiniLandscape().frame(width: 26, height: 26).clipShape(RoundedRectangle(cornerRadius: 4))
-                    MiniLandscape(flowers: true).frame(width: 26, height: 26).clipShape(RoundedRectangle(cornerRadius: 4)) }
-            }
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Decor.pink)
-                .frame(width: 50, height: 50)
-                .shadow(color: Decor.pink.opacity(0.4), radius: 6, x: 0, y: 3)
-                .overlay(Image(systemName: "hand.tap.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(.white))
-                .offset(x: 26, y: 18)
+            Image("deco_phone").resizable().scaledToFit()
+                .frame(width: 104, height: 112)
+                .offset(x: 6)
             Sparkle().fill(Decor.gold).frame(width: 14, height: 14).offset(x: -46, y: 14)
             Sparkle().fill(Decor.gold.opacity(0.8)).frame(width: 8, height: 8).offset(x: -40, y: 32)
         }
         .frame(width: 104, height: 124)
-        .rotationEffect(.degrees(-6))
         .accessibilityHidden(true)
     }
 }
@@ -363,8 +311,7 @@ struct SorterPhoneIllustration: View {
 struct StatPhotosDecor: View {
     var body: some View {
         ZStack {
-            Polaroid().frame(width: 46, height: 46).rotationEffect(.degrees(-8)).offset(x: -10, y: 2)
-            Polaroid(flowers: false).frame(width: 52, height: 52).rotationEffect(.degrees(8)).offset(x: 10, y: 8)
+            Image("deco_polaroids").resizable().scaledToFit().frame(width: 78, height: 66).offset(y: 6)
             Twinkle(color: Decor.pink).offset(x: -6, y: -40)
         }
         .frame(width: 80, height: 80)
@@ -374,15 +321,9 @@ struct StatPhotosDecor: View {
 
 struct StatFolderDecor: View {
     var body: some View {
-        let c = Color(red: 0.99, green: 0.84, blue: 0.55)
-        ZStack(alignment: .topLeading) {
-            UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8).fill(c).brightness(-0.05).frame(width: 30, height: 14)
-            RoundedRectangle(cornerRadius: 10).fill(c).brightness(-0.03).frame(width: 74, height: 50).offset(y: 8)
-            RoundedRectangle(cornerRadius: 3).fill(Color.white).frame(width: 46, height: 30).rotationEffect(.degrees(-6)).offset(x: 18, y: 4)
-            RoundedRectangle(cornerRadius: 10).fill(c).frame(width: 74, height: 36).offset(y: 24)
-        }
-        .frame(width: 80, height: 64, alignment: .topLeading)
-        .accessibilityHidden(true)
+        Image("deco_folder").resizable().scaledToFit()
+            .frame(width: 80, height: 64)
+            .accessibilityHidden(true)
     }
 }
 
@@ -390,14 +331,31 @@ struct StatPlanDecor: View {
     var unlocked: Bool
     var body: some View {
         ZStack {
-            Image(systemName: unlocked ? "crown.fill" : "gift.fill")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(Decor.gold)
-                .offset(x: 14, y: 22)
-            Sparkle().fill(Decor.gold).frame(width: 22, height: 22).offset(x: -4, y: -20)
-            Sparkle().fill(Decor.gold.opacity(0.8)).frame(width: 12, height: 12).offset(x: 20, y: -10)
+            if unlocked {
+                Image("deco_crown").resizable().scaledToFit().frame(width: 44, height: 38).offset(x: 12, y: 20)
+            } else {
+                Image(systemName: "gift.fill")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(Decor.gold)
+                    .offset(x: 14, y: 22)
+            }
+            Image("deco_sparkles").resizable().scaledToFit().frame(width: 34, height: 34).offset(x: 0, y: -18)
         }
         .frame(width: 70, height: 80)
         .accessibilityHidden(true)
+    }
+}
+
+
+/// 分類のアイコン：イラストがあるものはイラスト、ないものはSF Symbols
+enum CategoryArt {
+    static func asset(for symbol: String) -> String? {
+        switch symbol {
+        case "cart.fill": return "cat_cart"
+        case "house.fill": return "cat_house"
+        case "briefcase.fill": return "cat_bag"
+        case "pawprint.fill": return "cat_paw"
+        default: return nil
+        }
     }
 }

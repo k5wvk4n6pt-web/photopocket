@@ -401,9 +401,13 @@ struct CategoryView: View {
                         .fill(category.color.opacity(0.16))
                         .frame(width: 56, height: 56)
                         .overlay {
-                            Image(systemName: category.symbol)
-                                .font(.system(size: 26, weight: .semibold))
-                                .foregroundStyle(category.color)
+                            if let art = CategoryArt.asset(for: category.symbol) {
+                                Image(art).resizable().scaledToFit().padding(8)
+                            } else {
+                                Image(systemName: category.symbol)
+                                    .font(.system(size: 26, weight: .semibold))
+                                    .foregroundStyle(category.color)
+                            }
                         }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(category.name).font(.title.weight(.heavy))
@@ -574,9 +578,13 @@ struct CategoryCard: View {
                     .fill(accent.opacity(0.16))
                     .frame(width: 42, height: 42)
                     .overlay {
-                        Image(systemName: category.symbol)
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(accent)
+                        if let art = CategoryArt.asset(for: category.symbol) {
+                            Image(art).resizable().scaledToFit().padding(6)
+                        } else {
+                            Image(systemName: category.symbol)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(accent)
+                        }
                     }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(category.name)
@@ -882,14 +890,14 @@ struct HomeHeader: View {
 
             if showStats {
                 HStack(spacing: 10) {
-                    StatTile(symbol: "photo", color: Color(red: 0.91, green: 0.34, blue: 0.49),
+                    StatTile(symbol: "deco_photo_icon", color: Color(red: 0.91, green: 0.34, blue: 0.49),
                              tint: Color(red: 1.0, green: 0.90, blue: 0.92),
                              value: "\(photoCount)", label: "写真") { StatPhotosDecor() }
-                    StatTile(symbol: "folder", color: Color(red: 0.85, green: 0.54, blue: 0.12),
+                    StatTile(symbol: "deco_folder", color: Color(red: 0.85, green: 0.54, blue: 0.12),
                              tint: Color(red: 1.0, green: 0.95, blue: 0.84),
                              value: "\(folderCount)", label: "フォルダ") { StatFolderDecor() }
                     Button(action: onICloud) {
-                        StatTile(symbol: iCloudOn ? "checkmark.seal" : "sparkles",
+                        StatTile(symbol: iCloudOn ? "deco_badge" : "sparkles",
                                  color: Color(red: 0.18, green: 0.50, blue: 0.85),
                                  tint: Color(red: 0.90, green: 0.94, blue: 1.0),
                                  value: iCloudOn ? "フル版" : "無料版", label: "プラン") { StatPlanDecor(unlocked: iCloudOn) }
@@ -921,9 +929,13 @@ struct StatTile<Decoration: View>: View {
                 .fill(color.opacity(0.16))
                 .frame(width: 30, height: 30)
                 .overlay {
-                    Image(systemName: symbol)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(color)
+                    if symbol.hasPrefix("deco_") {
+                        Image(symbol).resizable().scaledToFit().padding(3)
+                    } else {
+                        Image(systemName: symbol)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(color)
+                    }
                 }
                 .padding(.bottom, 6)
             Text(value)
