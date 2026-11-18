@@ -438,7 +438,12 @@ struct CategoryView: View {
             .padding(.horizontal, 18)
             .padding(.bottom, 30)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(
+            LinearGradient(colors: [category.color.opacity(0.16), Theme.background],
+                           startPoint: .top, endPoint: .center)
+                .background(Theme.background)
+                .ignoresSafeArea()
+        )
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -624,7 +629,15 @@ struct CategoryCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Decor.glass, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        // 白一色にせず、分類の色をやさしく重ねる（左上は白、右下ほどその色）
+        .background(
+            ZStack {
+                Decor.glass
+                LinearGradient(colors: [accent.opacity(0.04), accent.opacity(0.16)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            },
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
         .overlay(alignment: .bottomTrailing) {
             CornerCloud(color: accent)
                 .offset(x: 24, y: 24)
