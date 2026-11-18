@@ -311,7 +311,7 @@ struct HomeView: View {
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
             .background(
-                LinearGradient(colors: [Color(red: 1.0, green: 0.93, blue: 0.93).opacity(0.95), Color(red: 1.0, green: 0.86, blue: 0.89).opacity(0.95)],
+                LinearGradient(colors: Decor.sorterGradient.map { $0.opacity(0.95) },
                                startPoint: .leading, endPoint: .trailing),
                 in: RoundedRectangle(cornerRadius: 28, style: .continuous)
             )
@@ -827,6 +827,7 @@ struct HomeHeader: View {
     var onICloud: () -> Void
 
     @AppStorage("appearance") private var appearanceRaw = AppearanceMode.light.rawValue
+    @AppStorage("appTheme") private var themeRaw = AppTheme.pink.rawValue
     private var mode: AppearanceMode { AppearanceMode(rawValue: appearanceRaw) ?? .light }
 
     private var dateText: String {
@@ -844,6 +845,11 @@ struct HomeHeader: View {
                     Picker("画面のモード", selection: $appearanceRaw) {
                         ForEach(AppearanceMode.allCases) { m in
                             Label(m.label, systemImage: m.symbol).tag(m.rawValue)
+                        }
+                    }
+                    Picker("色のテーマ", selection: $themeRaw) {
+                        ForEach(AppTheme.allCases) { t in
+                            Label(t.label, systemImage: t == .pink ? "heart.fill" : "drop.fill").tag(t.rawValue)
                         }
                     }
                 } label: {
@@ -890,8 +896,8 @@ struct HomeHeader: View {
 
             if showStats {
                 HStack(spacing: 10) {
-                    StatTile(symbol: "deco_photo_icon", color: Color(red: 0.91, green: 0.34, blue: 0.49),
-                             tint: Color(red: 1.0, green: 0.90, blue: 0.92),
+                    StatTile(symbol: "deco_photo_icon", color: Decor.pink,
+                             tint: AppTheme.isBlue ? Color(red: 0.88, green: 0.93, blue: 1.0) : Color(red: 1.0, green: 0.90, blue: 0.92),
                              value: "\(photoCount)", label: "写真") { StatPhotosDecor() }
                     StatTile(symbol: "deco_folder", color: Color(red: 0.85, green: 0.54, blue: 0.12),
                              tint: Color(red: 1.0, green: 0.95, blue: 0.84),
@@ -930,7 +936,7 @@ struct StatTile<Decoration: View>: View {
                 .frame(width: 30, height: 30)
                 .overlay {
                     if symbol.hasPrefix("deco_") {
-                        Image(symbol).resizable().scaledToFit().padding(3)
+                        Art.image(symbol).resizable().scaledToFit().padding(3)
                     } else {
                         Image(systemName: symbol)
                             .font(.system(size: 15, weight: .bold))

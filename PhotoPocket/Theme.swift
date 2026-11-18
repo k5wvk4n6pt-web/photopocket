@@ -2,30 +2,47 @@ import SwiftUI
 import UIKit
 
 /// アプリ全体の見た目（あたたかみのある色・丸い文字・やわらかいカード）
+/// 色のテーマ（ピンク・ブルー）
+enum AppTheme: String, CaseIterable, Identifiable {
+    case pink, blue
+    var id: String { rawValue }
+    var label: String { self == .pink ? "ピンク" : "ブルー" }
+    static var current: AppTheme {
+        AppTheme(rawValue: UserDefaults.standard.string(forKey: "appTheme") ?? "") ?? .pink
+    }
+    static var isBlue: Bool { current == .blue }
+}
+
+private func themed(light: (CGFloat, CGFloat, CGFloat), dark: (CGFloat, CGFloat, CGFloat)) -> Color {
+    Color(UIColor { trait in
+        let c = trait.userInterfaceStyle == .dark ? dark : light
+        return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+    })
+}
+
 enum Theme {
-    /// メインの色（やさしいピンク）
-    static let accent = Color(red: 0.95, green: 0.40, blue: 0.54)
+    /// メインの色（ピンク：やさしいピンク／ブルー：落ち着いた青）
+    static var accent: Color {
+        AppTheme.isBlue ? Color(red: 0.20, green: 0.48, blue: 0.86) : Color(red: 0.95, green: 0.40, blue: 0.54)
+    }
 
-    /// 薄いピンク（選択中のタブなど）
-    static let accentSoft = Color(UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.29, green: 0.15, blue: 0.19, alpha: 1)
-            : UIColor(red: 1.00, green: 0.90, blue: 0.93, alpha: 1)
-    })
+    /// 薄いメインの色（選択中のタブなど）
+    static var accentSoft: Color {
+        AppTheme.isBlue ? themed(light: (0.88, 0.93, 1.00), dark: (0.12, 0.18, 0.28))
+                        : themed(light: (1.00, 0.90, 0.93), dark: (0.29, 0.15, 0.19))
+    }
 
-    /// 文字の色（こげ茶）
-    static let ink = Color(UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.95, green: 0.93, blue: 0.90, alpha: 1)
-            : UIColor(red: 0.36, green: 0.23, blue: 0.13, alpha: 1)
-    })
+    /// 文字の色（ピンク：こげ茶／ブルー：紺）
+    static var ink: Color {
+        AppTheme.isBlue ? themed(light: (0.14, 0.23, 0.38), dark: (0.92, 0.94, 0.97))
+                        : themed(light: (0.36, 0.23, 0.13), dark: (0.95, 0.93, 0.90))
+    }
 
-    /// あいさつカードの色（淡いピンク）
-    static let greetingCard = Color(UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.23, green: 0.13, blue: 0.16, alpha: 1)
-            : UIColor(red: 1.00, green: 0.91, blue: 0.93, alpha: 1)
-    })
+    /// あいさつカードの色
+    static var greetingCard: Color {
+        AppTheme.isBlue ? themed(light: (0.90, 0.94, 1.00), dark: (0.11, 0.15, 0.23))
+                        : themed(light: (1.00, 0.91, 0.93), dark: (0.23, 0.13, 0.16))
+    }
 
     /// iCloudカードの色（淡い水色）
     static let cloudCard = Color(UIColor { trait in
@@ -38,12 +55,11 @@ enum Theme {
     static let skyTop = Color(red: 0.81, green: 0.91, blue: 0.98)
     static let skyBottom = Color(red: 0.95, green: 0.98, blue: 1.00)
 
-    /// 背景：ライトはクリーム色、ダークは落ち着いた黒
-    static let background = Color(UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.08, green: 0.075, blue: 0.07, alpha: 1)
-            : UIColor(red: 1.00, green: 0.976, blue: 0.96, alpha: 1)
-    })
+    /// 背景：ライトはクリーム色（ブルーは淡い水色）、ダークは落ち着いた黒
+    static var background: Color {
+        AppTheme.isBlue ? themed(light: (0.96, 0.975, 1.00), dark: (0.06, 0.07, 0.09))
+                        : themed(light: (1.00, 0.976, 0.96), dark: (0.08, 0.075, 0.07))
+    }
 
     /// カードの色
     static let card = Color(UIColor { trait in

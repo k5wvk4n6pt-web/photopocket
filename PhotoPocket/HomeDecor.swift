@@ -3,21 +3,36 @@ import UIKit
 
 /// ホーム画面の飾り（イラストはすべて図形で描くので、どの画面サイズ・ダークモードでもくっきり）
 enum Decor {
-    static let pink = Color(red: 0.95, green: 0.40, blue: 0.54)
-    static let peach = Color(red: 0.98, green: 0.72, blue: 0.62)
+    static var pink: Color { AppTheme.isBlue ? Color(red: 0.25, green: 0.52, blue: 0.88) : Color(red: 0.95, green: 0.40, blue: 0.54) }
+    static var peach: Color { AppTheme.isBlue ? Color(red: 0.55, green: 0.72, blue: 0.95) : Color(red: 0.98, green: 0.72, blue: 0.62) }
     static let gold = Color(red: 0.98, green: 0.78, blue: 0.30)
     static let leaf = Color(red: 0.62, green: 0.70, blue: 0.48)
     static let brown = Color(red: 0.42, green: 0.27, blue: 0.16)
 
     /// 背景のグラデーション（ライト：ピーチ、ダーク：落ち着いた茶）
-    static let backgroundTop = Color(UIColor { t in
-        t.userInterfaceStyle == .dark ? UIColor(red: 0.12, green: 0.09, blue: 0.09, alpha: 1)
-                                      : UIColor(red: 1.00, green: 0.91, blue: 0.87, alpha: 1)
-    })
-    static let backgroundBottom = Color(UIColor { t in
-        t.userInterfaceStyle == .dark ? UIColor(red: 0.08, green: 0.075, blue: 0.07, alpha: 1)
-                                      : UIColor(red: 1.00, green: 0.96, blue: 0.94, alpha: 1)
-    })
+    static var backgroundTop: Color {
+        let blue = AppTheme.isBlue
+        return Color(UIColor { t in
+            if t.userInterfaceStyle == .dark {
+                return blue ? UIColor(red: 0.07, green: 0.10, blue: 0.15, alpha: 1) : UIColor(red: 0.12, green: 0.09, blue: 0.09, alpha: 1)
+            }
+            return blue ? UIColor(red: 0.84, green: 0.91, blue: 1.00, alpha: 1) : UIColor(red: 1.00, green: 0.91, blue: 0.87, alpha: 1)
+        })
+    }
+    static var backgroundBottom: Color {
+        let blue = AppTheme.isBlue
+        return Color(UIColor { t in
+            if t.userInterfaceStyle == .dark {
+                return blue ? UIColor(red: 0.05, green: 0.06, blue: 0.08, alpha: 1) : UIColor(red: 0.08, green: 0.075, blue: 0.07, alpha: 1)
+            }
+            return blue ? UIColor(red: 0.96, green: 0.98, blue: 1.00, alpha: 1) : UIColor(red: 1.00, green: 0.96, blue: 0.94, alpha: 1)
+        })
+    }
+    /// 仕分けカードの背景（左→右）
+    static var sorterGradient: [Color] {
+        AppTheme.isBlue ? [Color(red: 0.92, green: 0.95, blue: 1.0), Color(red: 0.84, green: 0.90, blue: 1.0)]
+                        : [Color(red: 1.0, green: 0.93, blue: 0.93), Color(red: 1.0, green: 0.86, blue: 0.89)]
+    }
     /// 半透明の白いカード（背景が少し透ける）
     static let glass = Color(UIColor { t in
         t.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.15, blue: 0.14, alpha: 0.92)
@@ -43,16 +58,20 @@ struct HomeBackdrop: View {
                 Ellipse().fill(Decor.pink.opacity(0.10)).frame(width: w * 0.8, height: 220)
                     .blur(radius: 40).offset(x: w * 0.45, y: 260)
                 // 左上の枝と葉っぱ
-                LeafSprig()
-                    .frame(width: 120, height: 100)
-                    .offset(x: -26, y: -14)
+                if Art.isShown("deco_sprig") {
+                    LeafSprig()
+                        .frame(width: 120, height: 100)
+                        .offset(x: -26, y: -14)
+                }
                 // 下の小花
-                Image("deco_sakura").resizable().scaledToFit()
-                    .frame(width: 34, height: 34).opacity(0.85)
-                    .position(x: 22, y: geo.size.height - 40)
-                Image("deco_flower").resizable().scaledToFit()
-                    .frame(width: 34, height: 30).opacity(0.85)
-                    .position(x: w - 22, y: geo.size.height - 44)
+                if Art.isShown("deco_sakura") {
+                    Art.image("deco_sakura").resizable().scaledToFit()
+                        .frame(width: 34, height: 34).opacity(0.85)
+                        .position(x: 22, y: geo.size.height - 40)
+                    Art.image("deco_flower").resizable().scaledToFit()
+                        .frame(width: 34, height: 30).opacity(0.85)
+                        .position(x: w - 22, y: geo.size.height - 44)
+                }
             }
         }
         .ignoresSafeArea()
@@ -62,7 +81,7 @@ struct HomeBackdrop: View {
 /// 枝と葉っぱ
 struct LeafSprig: View {
     var body: some View {
-        Image("deco_sprig")
+        Art.image("deco_sprig")
             .resizable()
             .scaledToFit()
             .rotationEffect(.degrees(-28))
@@ -139,7 +158,7 @@ struct TinyHeart: View {
     var size: CGFloat = 14
     var filled = true
     var body: some View {
-        Image("deco_heart")
+        Art.image("deco_heart")
             .resizable()
             .scaledToFit()
             .frame(width: size * 1.5, height: size * 1.5)
@@ -151,7 +170,7 @@ struct TinyHeart: View {
 struct CornerCloud: View {
     var color: Color
     var body: some View {
-        Image("deco_cloud")
+        Art.image("deco_cloud")
             .resizable()
             .scaledToFit()
             .frame(width: 110, height: 60)
@@ -240,10 +259,10 @@ struct Polaroid: View {
 struct CameraIllustration: View {
     var body: some View {
         ZStack {
-            Image("deco_polaroids").resizable().scaledToFit()
+            Art.image("deco_polaroids").resizable().scaledToFit()
                 .frame(width: 112, height: 92)
                 .offset(x: 26, y: -18)
-            Image("deco_camera").resizable().scaledToFit()
+            Art.image("deco_camera").resizable().scaledToFit()
                 .frame(width: 104, height: 90)
                 .offset(x: -22, y: 24)
         }
@@ -282,10 +301,11 @@ struct CameraBody: View {
 /// ひょっこり顔を出すくま
 struct PeekingBear: View {
     var body: some View {
-        Image("deco_bear")
+        Art.image("deco_bear")
             .resizable()
             .scaledToFit()
             .frame(width: 110, height: 96)
+            .opacity(Art.isShown("deco_bear") ? 1 : 0)
             .accessibilityHidden(true)
     }
 }
@@ -295,7 +315,7 @@ struct PeekingBear: View {
 struct SorterPhoneIllustration: View {
     var body: some View {
         ZStack {
-            Image("deco_phone").resizable().scaledToFit()
+            Art.image("deco_phone").resizable().scaledToFit()
                 .frame(width: 104, height: 112)
                 .offset(x: 6)
             Sparkle().fill(Decor.gold).frame(width: 14, height: 14).offset(x: -46, y: 14)
@@ -311,7 +331,7 @@ struct SorterPhoneIllustration: View {
 struct StatPhotosDecor: View {
     var body: some View {
         ZStack {
-            Image("deco_polaroids").resizable().scaledToFit().frame(width: 78, height: 66).offset(y: 6)
+            Art.image("deco_polaroids").resizable().scaledToFit().frame(width: 78, height: 66).offset(y: 6)
             Twinkle(color: Decor.pink).offset(x: -6, y: -40)
         }
         .frame(width: 80, height: 80)
@@ -321,7 +341,7 @@ struct StatPhotosDecor: View {
 
 struct StatFolderDecor: View {
     var body: some View {
-        Image("deco_folder").resizable().scaledToFit()
+        Art.image("deco_folder").resizable().scaledToFit()
             .frame(width: 80, height: 64)
             .accessibilityHidden(true)
     }
@@ -332,14 +352,14 @@ struct StatPlanDecor: View {
     var body: some View {
         ZStack {
             if unlocked {
-                Image("deco_crown").resizable().scaledToFit().frame(width: 44, height: 38).offset(x: 12, y: 20)
+                Art.image("deco_crown").resizable().scaledToFit().frame(width: 44, height: 38).offset(x: 12, y: 20)
             } else {
                 Image(systemName: "gift.fill")
                     .font(.system(size: 30, weight: .semibold))
                     .foregroundStyle(Decor.gold)
                     .offset(x: 14, y: 22)
             }
-            Image("deco_sparkles").resizable().scaledToFit().frame(width: 34, height: 34).offset(x: 0, y: -18)
+            Art.image("deco_sparkles").resizable().scaledToFit().frame(width: 34, height: 34).offset(x: 0, y: -18)
         }
         .frame(width: 70, height: 80)
         .accessibilityHidden(true)
@@ -350,6 +370,17 @@ struct StatPlanDecor: View {
 /// 分類のアイコン：イラストがあるものはイラスト、ないものはSF Symbols
 enum CategoryArt {
     static func asset(for symbol: String) -> String? {
+        if AppTheme.isBlue {
+            switch symbol {
+            case "cart.fill": return "blue_tag"
+            case "briefcase.fill": return "blue_briefcase"
+            case "person.2.fill": return "blue_people"
+            case "doc.text.fill": return "blue_clipboard"
+            case "star.fill": return "blue_star"
+            case "camera.fill": return "blue_camera"
+            default: return nil
+            }
+        }
         switch symbol {
         case "cart.fill": return "cat_cart"
         case "house.fill": return "cat_house"
@@ -357,5 +388,22 @@ enum CategoryArt {
         case "pawprint.fill": return "cat_paw"
         default: return nil
         }
+    }
+}
+
+/// テーマに合わせたイラスト（ブルーでは青いイラストに入れ替え、合うものがない飾りは出さない）
+enum Art {
+    private static let blue: [String: String] = [
+        "deco_camera": "blue_camera", "deco_polaroids": "blue_photos", "deco_folder": "blue_folder",
+        "deco_photo_icon": "blue_picture", "deco_badge": "blue_shield", "deco_crown": "blue_star",
+        "deco_phone": "blue_phone", "deco_cloud": "blue_cloud", "deco_heart": "blue_star",
+    ]
+    private static let pinkOnly: Set<String> = ["deco_bear", "deco_sprig", "deco_sakura", "deco_flower"]
+
+    static func image(_ base: String) -> Image {
+        Image(AppTheme.isBlue ? (blue[base] ?? base) : base)
+    }
+    static func isShown(_ base: String) -> Bool {
+        !(AppTheme.isBlue && pinkOnly.contains(base))
     }
 }

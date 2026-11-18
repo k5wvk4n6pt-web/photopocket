@@ -8,13 +8,14 @@ struct PhotoPocketApp: App {
     @State private var container: ModelContainer = PhotoPocketApp.makeContainer(iCloud: Store.isUnlockedCached)
     @State private var containerIsCloud: Bool = Store.isUnlockedCached
     @AppStorage("appearance") private var appearanceRaw = AppearanceMode.light.rawValue
+    @AppStorage("appTheme") private var themeRaw = AppTheme.pink.rawValue
     @Environment(\.scenePhase) private var scenePhase
     private let syncTimer = Timer.publish(every: 90, on: .main, in: .common).autoconnect()
 
     var body: some Scene {
         WindowGroup {
             RootView()
-                .id(containerIsCloud)   // 保存先を切り替えたら画面を作り直す
+                .id("\(containerIsCloud)-\(themeRaw)")   // 保存先や色のテーマを切り替えたら画面を作り直す
                 // アプリのロック（フル版の機能）とアプリ一覧での目隠しは、別の窓（ウインドウ）で一番上に出す
                 // （写真を大きく見る画面などの全画面表示よりも上に出すため）
                 .onChange(of: lockOverlayKey) { _, _ in updateLockOverlay() }

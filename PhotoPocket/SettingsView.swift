@@ -5,6 +5,7 @@ import CloudKit
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("appearance") private var appearanceRaw = AppearanceMode.light.rawValue
+    @AppStorage("appTheme") private var themeRaw = AppTheme.pink.rawValue
     @AppStorage("reviewAfterImport") private var reviewAfterImport = true
     @Query private var photos: [PhotoItem]
     @Query private var folders: [PhotoFolder]
@@ -74,6 +75,12 @@ struct SettingsView: View {
                     Picker("画面のモード", selection: $appearanceRaw) {
                         ForEach(AppearanceMode.allCases) { m in
                             Text(m.label).tag(m.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Picker("色のテーマ", selection: $themeRaw) {
+                        ForEach(AppTheme.allCases) { t in
+                            Text(t.label).tag(t.rawValue)
                         }
                     }
                     .pickerStyle(.segmented)
