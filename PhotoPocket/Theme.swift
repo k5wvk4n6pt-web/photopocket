@@ -86,7 +86,8 @@ struct CardBackground: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(Theme.card, in: RoundedRectangle(cornerRadius: corner, style: .continuous))
-            .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
+            .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous).stroke(Decor.glassStroke, lineWidth: 1.2))
+            .shadow(color: Decor.cardShadow, radius: 10, x: 0, y: 5)
     }
 }
 

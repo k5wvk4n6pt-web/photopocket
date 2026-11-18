@@ -35,11 +35,21 @@ enum Decor {
     }
     /// 半透明の白いカード（背景が少し透ける）
     static let glass = Color(UIColor { t in
-        t.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.15, blue: 0.14, alpha: 0.92)
-                                      : UIColor(white: 1, alpha: 0.82)
+        t.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.15, blue: 0.14, alpha: 0.96)
+                                      : UIColor(white: 1, alpha: 0.96)
     })
-    static let glassStroke = Color(UIColor { t in
-        t.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.06) : UIColor(white: 1, alpha: 0.9)
+    /// カードの枠線（背景との境目がはっきり見えるよう、テーマの色を薄く）
+    static var glassStroke: Color {
+        let blue = AppTheme.isBlue
+        return Color(UIColor { t in
+            if t.userInterfaceStyle == .dark { return UIColor(white: 1, alpha: 0.14) }
+            return blue ? UIColor(red: 0.55, green: 0.70, blue: 0.92, alpha: 0.55)
+                        : UIColor(red: 0.92, green: 0.62, blue: 0.66, alpha: 0.55)
+        })
+    }
+    /// カードの影
+    static let cardShadow = Color(UIColor { t in
+        t.userInterfaceStyle == .dark ? UIColor(white: 0, alpha: 0.5) : UIColor(red: 0.45, green: 0.25, blue: 0.20, alpha: 0.13)
     })
 }
 

@@ -637,8 +637,8 @@ struct CategoryCard: View {
                 .offset(x: -24, y: 2)
                 .allowsHitTesting(false)
         }
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Decor.glassStroke, lineWidth: 1.5))
-        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(accent.opacity(0.45), lineWidth: 1.5))
+        .shadow(color: Decor.cardShadow, radius: 10, x: 0, y: 5)
         .contentShape(RoundedRectangle(cornerRadius: 24))
     }
 }
@@ -969,7 +969,7 @@ struct StatTile<Decoration: View>: View {
                 .allowsHitTesting(false)
         }
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Decor.glassStroke, lineWidth: 1.5))
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
+        .shadow(color: Decor.cardShadow, radius: 8, x: 0, y: 4)
         .accessibilityElement(children: .combine)
     }
 }
