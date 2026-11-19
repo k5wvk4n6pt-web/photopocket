@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -62,6 +63,15 @@ fun TextSheet(repo: Repo, item: Item, onClose: () -> Unit) {
     var summarizing by remember { mutableStateOf(false) }
     var aiState by remember { mutableStateOf<AiSummary.State?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
+    // 要点（ラベルと内容の組）。自分で直したら edited = true になり、保存される
+    var edited by remember(item.id) { mutableStateOf(item.keyPoints.isNotBlank()) }
+    var points by remember(item.id) {
+        mutableStateOf(KeyInfo.forItem(item.keyPoints, item.recognizedText).flatMap { g -> g.items.map { g.label to it } })
+    }
+    var editingPoints by remember { mutableStateOf(false) }
+    LaunchedEffect(text) {
+        if (!edited) points = KeyInfo.extract(text).flatMap { g -> g.items.map { g.label to it } }
+    }
 
     fun read() = scope.launch {
         reading = true
@@ -86,7 +96,8 @@ fun TextSheet(repo: Repo, item: Item, onClose: () -> Unit) {
                     Text("写真の文字", color = p.ink, fontWeight = FontWeight.Black, fontSize = 17.sp)
                     Spacer(Modifier.weight(1f))
                     PillButton("保存", filled = true) {
-                        scope.launch { repo.dao.update(item.copy(recognizedText = text, summary = summary)) }
+                        val saved = if (edited) KeyInfo.encode(points.filter { it.second.isNotBlank() }.groupBy({ it.first }, { it.second }).map { KeyInfo.Group(it.key, it.value) }) else ""
+                        scope.launch { repo.dao.update(item.copy(recognizedText = text, summary = summary, keyPoints = saved)) }
                         onClose()
                     }
                 }
@@ -123,25 +134,57 @@ fun TextSheet(repo: Repo, item: Item, onClose: () -> Unit) {
                     }
                 }
 
-                // 要点
-                val groups = KeyInfo.extract(text)
-                if (groups.isNotEmpty()) {
+                // 要点（自分で直せる）
+                if (points.isNotEmpty() || editingPoints || text.isNotBlank()) {
                     Column(Modifier.fillMaxWidth().pocketCard(p, 18.dp).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("✦ 要点", color = p.accent, fontWeight = FontWeight.Black)
-                        groups.forEach { g ->
-                            Text(g.label, color = p.sub, fontSize = 11.sp)
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                g.items.forEach { v ->
-                                    Text(
-                                        v, color = p.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(p.soft)
-                                            .clickable { copy(context, v); message = "コピーしました" }
-                                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                                    )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("✦ 要点", color = p.accent, fontWeight = FontWeight.Black)
+                            if (edited && !editingPoints) Text("（編集済み）", color = p.sub, fontSize = 11.sp)
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                if (editingPoints) "完了" else "編集", color = p.accent, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    if (editingPoints) points = points.filter { it.second.isNotBlank() }
+                                    editingPoints = !editingPoints
+                                },
+                            )
+                        }
+                        if (editingPoints) {
+                            points.forEachIndexed { i, (label, value) ->
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    OutlinedTextField(label, { v -> points = points.toMutableList().also { it[i] = v to value }; edited = true },
+                                        singleLine = true, label = { Text("種類") }, modifier = Modifier.weight(0.38f))
+                                    OutlinedTextField(value, { v -> points = points.toMutableList().also { it[i] = label to v }; edited = true },
+                                        label = { Text("内容") }, modifier = Modifier.weight(0.62f))
+                                    Icon(Icons.Filled.Close, "消す", tint = p.sub, modifier = Modifier.clickable {
+                                        points = points.toMutableList().also { it.removeAt(i) }; edited = true
+                                    })
                                 }
                             }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                PillButton("＋ 要点を追加") { points = points + ("メモ" to ""); edited = true }
+                                PillButton("文字から作り直す") {
+                                    points = KeyInfo.extract(text).flatMap { g -> g.items.map { g.label to it } }; edited = false
+                                }
+                            }
+                        } else if (points.isEmpty()) {
+                            Text("要点は見つかりませんでした。「編集」から自分で追加できます。", color = p.sub, fontSize = 13.sp)
+                        } else {
+                            points.groupBy({ it.first }, { it.second }).forEach { (label, values) ->
+                                Text(label, color = p.sub, fontSize = 11.sp)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    values.forEach { v ->
+                                        Text(
+                                            v, color = p.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(p.soft)
+                                                .clickable { copy(context, v); message = "コピーしました" }
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            Text("タップでコピー・「編集」で直せます", color = p.sub, fontSize = 11.sp)
                         }
-                        Text("タップでコピーできます", color = p.sub, fontSize = 11.sp)
                     }
                 }
 

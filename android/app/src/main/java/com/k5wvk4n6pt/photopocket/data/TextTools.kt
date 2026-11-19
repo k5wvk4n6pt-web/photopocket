@@ -72,6 +72,20 @@ object AiSummary {
 object KeyInfo {
     data class Group(val label: String, val items: List<String>)
 
+    /** 保存用の文字（「ラベル\t内容」を1行ずつ）に変える */
+    fun encode(groups: List<Group>): String =
+        groups.flatMap { g -> g.items.map { "${g.label}\t$it" } }.joinToString("\n")
+
+    fun decode(s: String): List<Group> = s.lines().mapNotNull { line ->
+        val i = line.indexOf('\t')
+        if (i < 0) null else line.substring(0, i) to line.substring(i + 1)
+    }.filter { it.second.isNotBlank() }
+        .groupBy({ it.first }, { it.second })
+        .map { Group(it.key, it.value) }
+
+    /** 自分で直した要点があればそれを、なければ文字から取り出したものを使う */
+    fun forItem(saved: String, text: String): List<Group> = if (saved.isNotBlank()) decode(saved) else extract(text)
+
     fun extract(text: String): List<Group> {
         fun matches(pattern: String): List<String> =
             Regex(pattern).findAll(text).map { it.value.trim() }.filter { it.isNotEmpty() }.distinct().toList()

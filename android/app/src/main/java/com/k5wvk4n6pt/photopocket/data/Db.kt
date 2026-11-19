@@ -1,6 +1,7 @@
 package com.k5wvk4n6pt.photopocket.data
 
 import android.content.Context
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
@@ -54,6 +55,8 @@ data class Item(
     val memo: String = "",
     val recognizedText: String = "",
     val summary: String = "",
+    /** 自分で直した要点（「ラベル\t内容」を1行ずつ）。空なら文字から自動で取り出す */
+    @ColumnInfo(defaultValue = "") val keyPoints: String = "",
 )
 
 /** スワイプの仕分けで「残す」「フォルダへ」にした写真（次から出さない） */
@@ -121,7 +124,14 @@ interface PocketDao {
     suspend fun deleteItemsForMedia(mediaIds: List<Long>)
 }
 
-@Database(entities = [Category::class, Folder::class, Item::class, Handled::class], version = 1, exportSchema = false)
+/** 要点を保存する欄を追加 */
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE Item ADD COLUMN keyPoints TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+@Database(entities = [Category::class, Folder::class, Item::class, Handled::class], version = 2, exportSchema = false)
 abstract class PocketDb : RoomDatabase() {
     abstract fun dao(): PocketDao
 
@@ -129,6 +139,7 @@ abstract class PocketDb : RoomDatabase() {
         @Volatile private var instance: PocketDb? = null
         fun get(context: Context): PocketDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, PocketDb::class.java, "photopocket.db")
+                .addMigrations(MIGRATION_1_2)
                 .build().also { instance = it }
         }
     }
