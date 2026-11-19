@@ -147,10 +147,10 @@ private fun HomeHeader(onSettings: () -> Unit) {
                 Box {
                     Icon(Icons.Filled.Palette, "色とモード", tint = p.ink, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(50)).clickable { menu = true }.padding(9.dp))
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text((if (!Prefs.blue) "✓ " else "　") + "ピンク") }, onClick = { Prefs.setBlue(false); menu = false })
-                        DropdownMenuItem(text = { Text((if (Prefs.blue) "✓ " else "　") + "ブルー") }, onClick = { Prefs.setBlue(true); menu = false })
+                        DropdownMenuItem(text = { Text((if (!Prefs.blue) "✓ " else "　") + "ピンク") }, onClick = { Prefs.updateBlue(false); menu = false })
+                        DropdownMenuItem(text = { Text((if (Prefs.blue) "✓ " else "　") + "ブルー") }, onClick = { Prefs.updateBlue(true); menu = false })
                         listOf("light" to "ライトモード", "dark" to "ダークモード", "system" to "端末に合わせる").forEach { (k, l) ->
-                            DropdownMenuItem(text = { Text((if (Prefs.mode == k) "✓ " else "　") + l) }, onClick = { Prefs.setMode(k); menu = false })
+                            DropdownMenuItem(text = { Text((if (Prefs.mode == k) "✓ " else "　") + l) }, onClick = { Prefs.updateMode(k); menu = false })
                         }
                     }
                 }

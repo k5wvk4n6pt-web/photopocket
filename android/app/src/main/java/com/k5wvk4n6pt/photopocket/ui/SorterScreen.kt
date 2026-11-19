@@ -187,8 +187,8 @@ fun SorterScreen(
             Box {
                 CircleButton(Icons.Filled.Settings, "設定") { settingsMenu = true }
                 DropdownMenu(settingsMenu, { settingsMenu = false }) {
-                    DropdownMenuItem(text = { Text((if (Prefs.sortByAdded) "✓ " else "　") + "保存した順") }, onClick = { Prefs.setSortByAdded(true); settingsMenu = false })
-                    DropdownMenuItem(text = { Text((if (!Prefs.sortByAdded) "✓ " else "　") + "撮影日順") }, onClick = { Prefs.setSortByAdded(false); settingsMenu = false })
+                    DropdownMenuItem(text = { Text((if (Prefs.sortByAdded) "✓ " else "　") + "保存した順") }, onClick = { Prefs.updateSortByAdded(true); settingsMenu = false })
+                    DropdownMenuItem(text = { Text((if (!Prefs.sortByAdded) "✓ " else "　") + "撮影日順") }, onClick = { Prefs.updateSortByAdded(false); settingsMenu = false })
                 }
             }
         }
@@ -198,7 +198,7 @@ fun SorterScreen(
                 Box(
                     Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
                         .background(if (Prefs.gridMode == g) p.card else Color.Transparent)
-                        .clickable { Prefs.setGridMode(g) }.padding(vertical = 7.dp),
+                        .clickable { Prefs.updateGridMode(g) }.padding(vertical = 7.dp),
                     contentAlignment = Alignment.Center,
                 ) { Text(label, color = p.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }

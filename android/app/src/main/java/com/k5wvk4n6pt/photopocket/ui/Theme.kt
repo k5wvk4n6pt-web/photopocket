@@ -49,10 +49,10 @@ object Prefs {
         gridMode = sp.getBoolean("gridMode", false)
     }
 
-    fun setBlue(v: Boolean) { blue = v; sp.edit().putBoolean("blue", v).apply() }
-    fun setMode(v: String) { mode = v; sp.edit().putString("mode", v).apply() }
-    fun setSortByAdded(v: Boolean) { sortByAdded = v; sp.edit().putBoolean("sortByAdded", v).apply() }
-    fun setGridMode(v: Boolean) { gridMode = v; sp.edit().putBoolean("gridMode", v).apply() }
+    fun updateBlue(v: Boolean) { blue = v; sp.edit().putBoolean("blue", v).apply() }
+    fun updateMode(v: String) { mode = v; sp.edit().putString("mode", v).apply() }
+    fun updateSortByAdded(v: Boolean) { sortByAdded = v; sp.edit().putBoolean("sortByAdded", v).apply() }
+    fun updateGridMode(v: Boolean) { gridMode = v; sp.edit().putBoolean("gridMode", v).apply() }
 }
 
 data class Palette(

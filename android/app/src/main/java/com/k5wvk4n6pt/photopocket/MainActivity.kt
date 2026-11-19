@@ -137,13 +137,13 @@ fun SettingsScreen(folderCount: Int, itemCount: Int, onBack: () -> Unit) {
         Text("設定", color = p.ink, fontSize = 28.sp, fontWeight = FontWeight.Black)
 
         Section("色のテーマ") {
-            Choice(listOf(false to "ピンク", true to "ブルー"), Prefs.blue) { Prefs.setBlue(it) }
+            Choice(listOf(false to "ピンク", true to "ブルー"), Prefs.blue) { Prefs.updateBlue(it) }
         }
         Section("画面のモード") {
-            Choice(listOf("light" to "ライト", "dark" to "ダーク", "system" to "端末に合わせる"), Prefs.mode) { Prefs.setMode(it) }
+            Choice(listOf("light" to "ライト", "dark" to "ダーク", "system" to "端末に合わせる"), Prefs.mode) { Prefs.updateMode(it) }
         }
         Section("仕分けの並び順") {
-            Choice(listOf(true to "保存した順", false to "撮影日順"), Prefs.sortByAdded) { Prefs.setSortByAdded(it) }
+            Choice(listOf(true to "保存した順", false to "撮影日順"), Prefs.sortByAdded) { Prefs.updateSortByAdded(it) }
         }
         Section("保存状況") {
             Text("フォルダ：${folderCount}つ", color = p.ink)
