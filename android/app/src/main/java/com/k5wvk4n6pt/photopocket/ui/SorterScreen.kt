@@ -411,24 +411,16 @@ private fun Done(pendingCount: Int) {
     }
 }
 
-/** 写真を大きく表示（ピンチで拡大）／動画はほかのアプリで再生 */
+/** 写真を大きく表示（ピンチで拡大）／動画を再生 */
 @Composable
 fun MediaPreview(uri: Uri, isVideo: Boolean, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    if (isVideo) {
-        LaunchedEffect(uri) {
-            val i = Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            runCatching { context.startActivity(i) }
-            onDismiss()
-        }
-        return
-    }
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            ZoomableImage(uri.toString(), Modifier.fillMaxSize())
+            if (isVideo) VideoPlayer(uri, Modifier.fillMaxSize().padding(vertical = 60.dp))
+            else ZoomableImage(uri.toString(), Modifier.fillMaxSize())
             Box(Modifier.statusBarsPadding().padding(12.dp)) { PillButton("閉じる", onClick = onDismiss) }
         }
     }

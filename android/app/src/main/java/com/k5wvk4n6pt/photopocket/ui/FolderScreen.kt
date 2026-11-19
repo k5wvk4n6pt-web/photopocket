@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -264,6 +265,7 @@ fun ItemViewer(repo: Repo, items: List<Item>, start: Int, categories: List<Categ
     var moving by remember { mutableStateOf<Item?>(null) }
     var removing by remember { mutableStateOf<Item?>(null) }
     var trashed by remember { mutableStateOf<Item?>(null) }
+    var textFor by remember { mutableStateOf<Item?>(null) }
     val trash = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK) trashed?.let { t -> scope.launch { repo.dao.deleteItemsForMedia(listOf(t.mediaId)) } }
         trashed = null
@@ -277,11 +279,8 @@ fun ItemViewer(repo: Repo, items: List<Item>, start: Int, categories: List<Categ
                 val it = items[page]
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (it.isVideo) {
-                        AsyncImage(it.uri, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
-                        Icon(Icons.Filled.PlayCircle, "再生", tint = Color.White, modifier = Modifier.size(80.dp).clickable {
-                            val i = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(it.uri), "video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            runCatching { context.startActivity(i) }
-                        })
+                        if (page == pager.currentPage) VideoPlayer(Uri.parse(it.uri), Modifier.fillMaxSize().padding(vertical = 70.dp))
+                        else AsyncImage(it.uri, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
                     } else ZoomableImage(it.uri, Modifier.fillMaxSize())
                 }
             }
@@ -299,6 +298,7 @@ fun ItemViewer(repo: Repo, items: List<Item>, start: Int, categories: List<Categ
                     )
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                         ViewerButton(Icons.Filled.Share, "共有") { share(context, listOf(current)) }
+                        if (!current.isVideo) ViewerButton(Icons.Filled.TextFields, "文字・要点") { textFor = current }
                         ViewerButton(Icons.Filled.EditNote, "メモ") { memoFor = current }
                         ViewerButton(Icons.AutoMirrored.Filled.DriveFileMove, "移動") { moving = current }
                         ViewerButton(Icons.Filled.RemoveCircleOutline, "外す") { removing = current }
@@ -311,6 +311,7 @@ fun ItemViewer(repo: Repo, items: List<Item>, start: Int, categories: List<Categ
             }
         }
     }
+    textFor?.let { TextSheet(repo, it) { textFor = null } }
     memoFor?.let { it ->
         var text by remember(it.id) { mutableStateOf(it.memo) }
         AlertDialog(

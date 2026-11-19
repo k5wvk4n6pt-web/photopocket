@@ -88,7 +88,9 @@ fun TabBar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun AllPhotosScreen(repo: Repo, items: List<Item>, categories: List<Category>, folders: List<Folder>, recent: Boolean) {
     val p = LocalPalette.current
-    val list = if (recent) items.sortedByDescending { it.addedAt }.take(60) else items.distinctBy { it.mediaId }
+    var query by remember { mutableStateOf("") }
+    val base = if (recent) items.sortedByDescending { it.addedAt }.take(60) else items.distinctBy { it.mediaId }
+    val list = if (query.isBlank()) base else base.filter { it.memo.contains(query) || it.recognizedText.contains(query) || it.summary.contains(query) }
     var viewer by remember { mutableStateOf<Int?>(null) }
     val groups = if (recent) listOf("" to list) else list.groupBy {
         val d = Instant.ofEpochMilli(it.takenAt).atZone(ZoneId.systemDefault())
@@ -104,6 +106,11 @@ fun AllPhotosScreen(repo: Repo, items: List<Item>, categories: List<Category>, f
             Column(Modifier.statusBarsPadding().padding(top = 16.dp, bottom = 8.dp)) {
                 Text(if (recent) "最近の写真" else "すべての写真", color = p.ink, fontSize = 28.sp, fontWeight = FontWeight.Black)
                 Text(if (recent) "最近フォルダに入れた写真" else "${list.size}枚", color = p.sub, fontSize = 13.sp)
+                if (!recent) androidx.compose.material3.OutlinedTextField(
+                    query, { query = it }, singleLine = true,
+                    placeholder = { Text("メモや写真の文字で検索") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                )
             }
         }
         if (list.isEmpty()) item(span = { GridItemSpan(3) }) {

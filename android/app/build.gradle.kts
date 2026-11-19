@@ -63,4 +63,12 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-video:2.7.0")
+
+    // 文字の読み取り（端末の中で処理・日本語）
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    // AIのまとめ（Gemini Nano・対応機種のみ）
+    implementation("com.google.mlkit:genai-summarization:1.0.0-beta1")
+    // 動画の再生
+    implementation("androidx.media3:media3-exoplayer:1.5.0")
+    implementation("androidx.media3:media3-ui:1.5.0")
 }
