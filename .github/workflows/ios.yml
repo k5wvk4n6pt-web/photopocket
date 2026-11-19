@@ -3,6 +3,7 @@ name: iOS Build
 on:
   push:
     branches: [main]
+    paths-ignore: ["android/**", ".github/workflows/android.yml", "docs/**"]
   workflow_dispatch:
     inputs:
       testflight:
