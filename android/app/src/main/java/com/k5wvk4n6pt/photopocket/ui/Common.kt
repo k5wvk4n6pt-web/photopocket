@@ -234,8 +234,9 @@ fun NameColorDialog(
 @Composable
 fun ConfirmDialog(
     title: String, message: String, confirm: String, destructive: Boolean = true,
-    onDismiss: () -> Unit, onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
     extra: (@Composable () -> Unit)? = null,
+    onConfirm: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,

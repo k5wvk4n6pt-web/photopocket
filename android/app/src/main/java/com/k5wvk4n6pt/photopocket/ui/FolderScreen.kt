@@ -342,6 +342,7 @@ private fun ViewerButton(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 /** ピンチで拡大・ダブルタップで拡大／元に戻す画像（拡大していないときは左右にめくれる） */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ZoomableImage(model: String, modifier: Modifier = Modifier) {
     var scale by remember(model) { mutableFloatStateOf(1f) }
