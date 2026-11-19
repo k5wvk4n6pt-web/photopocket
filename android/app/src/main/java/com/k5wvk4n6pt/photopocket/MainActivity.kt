@@ -104,6 +104,7 @@ fun App(repo: Repo) {
                     onSorter = { push(Screen.Sorter) },
                     onSettings = { push(Screen.SettingsS) },
                     onReorder = { manageCategories = true },
+                    onTab = { tab = it },
                 )
                 1 -> AllPhotosScreen(repo, items, categories, folders, recent = false)
                 2 -> AllFoldersScreen(categories, folders, items) { push(Screen.FolderS(it)) }

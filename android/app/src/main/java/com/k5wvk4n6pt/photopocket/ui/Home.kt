@@ -69,6 +69,7 @@ fun HomeScreen(
     onSorter: () -> Unit,
     onSettings: () -> Unit,
     onReorder: () -> Unit,
+    onTab: (Int) -> Unit,
 ) {
     val p = LocalPalette.current
     val scope = rememberCoroutineScope()
@@ -83,9 +84,9 @@ fun HomeScreen(
         item(span = { GridItemSpan(2) }) { HomeHeader(onSettings) }
         item(span = { GridItemSpan(2) }) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(Art.photoIcon(p), "${items.size}", "写真", Art.photos(p), if (p.blue) Color(0xFFE0EDFF) else Color(0xFFFFE6EB), Modifier.weight(1f))
-                StatTile(Art.folder(p), "${folders.size}", "フォルダ", Art.folder(p), Color(0xFFFFF2D6), Modifier.weight(1f))
-                StatTile(Art.badge(p), "フル版", "プラン", Art.crown(p), Color(0xFFE6EFFF), Modifier.weight(1f))
+                StatTile(Art.photoIcon(p), "${items.size}", "写真", Art.photos(p), if (p.blue) Color(0xFFE0EDFF) else Color(0xFFFFE6EB), Modifier.weight(1f)) { onTab(1) }
+                StatTile(Art.folder(p), "${folders.size}", "フォルダ", Art.folder(p), Color(0xFFFFF2D6), Modifier.weight(1f)) { onTab(2) }
+                StatTile(Art.badge(p), "フル版", "プラン", Art.crown(p), Color(0xFFE6EFFF), Modifier.weight(1f), onSettings)
             }
         }
         item(span = { GridItemSpan(2) }) { SorterCard(onSorter) }
@@ -170,9 +171,9 @@ private fun HomeHeader(onSettings: () -> Unit) {
 }
 
 @Composable
-private fun StatTile(icon: Int, value: String, label: String, deco: Int, tint: Color, modifier: Modifier) {
+private fun StatTile(icon: Int, value: String, label: String, deco: Int, tint: Color, modifier: Modifier, onClick: () -> Unit) {
     val p = LocalPalette.current
-    Box(modifier.pocketCard(p, 20.dp).background(Brush.linearGradient(listOf(Color.Transparent, tint.copy(alpha = if (p.dark) 0.15f else 0.9f)))).padding(12.dp)) {
+    Box(modifier.pocketCard(p, 20.dp).clickable(onClick = onClick).background(Brush.linearGradient(listOf(Color.Transparent, tint.copy(alpha = if (p.dark) 0.15f else 0.9f)))).padding(12.dp)) {
         Column {
             Box(Modifier.size(30.dp).clip(RoundedCornerShape(10.dp)).background(tint), contentAlignment = Alignment.Center) {
                 Image(painterResource(icon), null, Modifier.size(24.dp))

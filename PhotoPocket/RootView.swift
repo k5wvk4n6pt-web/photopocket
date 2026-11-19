@@ -43,6 +43,17 @@ extension View {
 
 // MARK: - タブ
 
+/// ホームの数字カードからタブを切り替えるための窓口
+private struct SwitchTabKey: EnvironmentKey {
+    static let defaultValue: (AppTab) -> Void = { _ in }
+}
+extension EnvironmentValues {
+    var switchTab: (AppTab) -> Void {
+        get { self[SwitchTabKey.self] }
+        set { self[SwitchTabKey.self] = newValue }
+    }
+}
+
 enum AppTab: String, CaseIterable, Identifiable {
     case home, all, folders, recent
     var id: String { rawValue }
@@ -85,6 +96,7 @@ struct RootView: View {
             switch tab {
             case .home:
                 NavigationStack(path: $homePath) { HomeView().photoPocketDestinations() }
+                    .environment(\.switchTab) { tab = $0 }
             case .all:
                 NavigationStack(path: $allPath) { AllPhotosView().photoPocketDestinations() }
             case .folders:
@@ -161,6 +173,7 @@ struct HomeView: View {
     @State private var showSorter = false
     @State private var showReorder = false
     @State private var showMigration = false
+    @Environment(\.switchTab) private var switchTab
 
     private var uncategorized: [PhotoFolder] { allFolders.filter { $0.category == nil } }
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -174,7 +187,9 @@ struct HomeView: View {
                     folderCount: allFolders.count,
                     iCloudOn: store.isUnlocked,
                     onSettings: { showSettings = true },
-                    onICloud: { if store.isUnlocked { showSettings = true } else { showUnlock = true } }
+                    onICloud: { if store.isUnlocked { showSettings = true } else { showUnlock = true } },
+                    onPhotos: { switchTab(.all) },
+                    onFolders: { switchTab(.folders) }
                 )
 
                 if categories.isEmpty && allFolders.isEmpty {
@@ -839,6 +854,8 @@ struct HomeHeader: View {
     var iCloudOn: Bool
     var onSettings: () -> Void
     var onICloud: () -> Void
+    var onPhotos: () -> Void = {}
+    var onFolders: () -> Void = {}
 
     @AppStorage("appearance") private var appearanceRaw = AppearanceMode.light.rawValue
     @AppStorage("appTheme") private var themeRaw = AppTheme.pink.rawValue
@@ -910,12 +927,20 @@ struct HomeHeader: View {
 
             if showStats {
                 HStack(spacing: 10) {
-                    StatTile(symbol: "deco_photo_icon", color: Decor.pink,
-                             tint: AppTheme.isBlue ? Color(red: 0.88, green: 0.93, blue: 1.0) : Color(red: 1.0, green: 0.90, blue: 0.92),
-                             value: "\(photoCount)", label: "写真") { StatPhotosDecor() }
-                    StatTile(symbol: "deco_folder", color: Color(red: 0.85, green: 0.54, blue: 0.12),
-                             tint: Color(red: 1.0, green: 0.95, blue: 0.84),
-                             value: "\(folderCount)", label: "フォルダ") { StatFolderDecor() }
+                    Button(action: onPhotos) {
+                        StatTile(symbol: "deco_photo_icon", color: Decor.pink,
+                                 tint: AppTheme.isBlue ? Color(red: 0.88, green: 0.93, blue: 1.0) : Color(red: 1.0, green: 0.90, blue: 0.92),
+                                 value: "\(photoCount)", label: "写真") { StatPhotosDecor() }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("すべての写真を開きます")
+                    Button(action: onFolders) {
+                        StatTile(symbol: "deco_folder", color: Color(red: 0.85, green: 0.54, blue: 0.12),
+                                 tint: Color(red: 1.0, green: 0.95, blue: 0.84),
+                                 value: "\(folderCount)", label: "フォルダ") { StatFolderDecor() }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("フォルダの一覧を開きます")
                     Button(action: onICloud) {
                         StatTile(symbol: iCloudOn ? "deco_badge" : "sparkles",
                                  color: Color(red: 0.18, green: 0.50, blue: 0.85),
