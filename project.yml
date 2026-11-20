@@ -38,6 +38,8 @@ targets:
         LSApplicationCategoryType: public.app-category.photography
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryUsageDescription: 写真アプリの写真をフォルダに分けて表示したり、いらない写真を削除したりするために、写真ライブラリへのアクセスを使用します。
+        NSCameraUsageDescription: フォルダの中から写真や動画を撮って、そのフォルダに入れるためにカメラを使用します。
+        NSMicrophoneUsageDescription: カメラで動画を撮るときに音声を録音するためにマイクを使用します。
         NSFaceIDUsageDescription: アプリを開くときのロックに Face ID を使用します。
         NSPhotoLibraryAddUsageDescription: アプリで整理した写真を写真アプリに書き出すために使用します。
         UILaunchScreen: {}

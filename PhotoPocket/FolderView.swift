@@ -25,6 +25,8 @@ struct FolderView: View {
     @State private var alertMessage: String?
     @State private var busy = false
     @State private var showUnlock = false
+    @State private var showCamera = false
+    @State private var toast: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
     private var photos: [PhotoItem] { folder.sortedPhotos }
@@ -53,10 +55,16 @@ struct FolderView: View {
         .background(Theme.background.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             if !selecting && !photos.isEmpty {
-                Button { openPicker() } label: {
-                    Label("写真・動画を入れる", systemImage: "plus")
+                HStack(spacing: 12) {
+                    Button { openPicker() } label: {
+                        Label("写真・動画を入れる", systemImage: "plus")
+                    }
+                    .buttonStyle(BigButtonStyle())
+                    if CameraPicker.isAvailable {
+                        cameraButton
+                    }
                 }
-                .buttonStyle(BigButtonStyle())
+                .padding(.horizontal, 20)
                 .padding(.bottom, 10)
             }
         }
@@ -75,6 +83,31 @@ struct FolderView: View {
         .onChange(of: pickerItems) { _, newItems in
             guard !newItems.isEmpty else { return }
             Task { await runImport(newItems) }
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraPicker { captured in
+                showCamera = false
+                Task {
+                    busy = true
+                    let error = await CameraSaver.save(captured, to: folder, context: context)
+                    busy = false
+                    if let error { alertMessage = error } else { showToast("「\(folder.name)」に入れました") }
+                }
+            } onCancel: {
+                showCamera = false
+            }
+            .ignoresSafeArea()
+        }
+        .overlay(alignment: .top) {
+            if let toast {
+                Text(toast)
+                    .font(.callout.bold())
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .overlay {
             if importer.isImporting {
@@ -159,6 +192,9 @@ struct FolderView: View {
                 Menu {
                     Button { selecting = true } label: { Label("写真を選択", systemImage: "checkmark.circle") }
                         .disabled(photos.isEmpty)
+                    if CameraPicker.isAvailable {
+                        Button { openCamera() } label: { Label("カメラで撮ってこのフォルダに入れる", systemImage: "camera") }
+                    }
                     Button { editFolder = .edit(folder) } label: { Label("フォルダを編集", systemImage: "pencil") }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -192,11 +228,48 @@ struct FolderView: View {
                 Label("写真・動画を入れる", systemImage: "plus")
             }
             .buttonStyle(BigButtonStyle())
+            if CameraPicker.isAvailable {
+                Button { openCamera() } label: {
+                    Label("カメラで撮って入れる", systemImage: "camera.fill")
+                }
+                .font(.callout.bold())
+                .foregroundStyle(Theme.accent)
+                .padding(.top, 4)
+            }
         }
         .padding(.top, 40)
     }
 
+    /// 撮った写真・動画がそのままこのフォルダに入るカメラ
+    private var cameraButton: some View {
+        Button { openCamera() } label: {
+            Image(systemName: "camera.fill")
+                .font(.title3.bold())
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Theme.accent, in: Circle())
+                .shadow(color: Theme.accent.opacity(0.3), radius: 8, x: 0, y: 4)
+        }
+        .accessibilityLabel("カメラで撮ってこのフォルダに入れる")
+    }
+
     // MARK: - Actions
+
+    private func openCamera() {
+        if FreeLimit.remainingPhotos(store: store, context: context) <= 0 {
+            showUnlock = true
+        } else {
+            showCamera = true
+        }
+    }
+
+    private func showToast(_ text: String) {
+        withAnimation { toast = text }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { toast = nil }
+        }
+    }
 
     private func tap(_ item: PhotoItem) {
         if selecting {
