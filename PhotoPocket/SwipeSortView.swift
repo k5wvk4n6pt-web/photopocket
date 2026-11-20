@@ -53,9 +53,17 @@ final class SwipeSorter: ObservableObject {
                                         PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
         if order == "taken" {
             options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            fetch = PHAsset.fetchAssets(with: options)
+            return
         }
-        // 並べ替えを指定しないと、写真アプリに保存した順（古い順）で返る
-        fetch = PHAsset.fetchAssets(with: options)
+        // 全体から並べ替えなしで取ると、動画と写真が種類ごとにまとまって返ることがある。
+        // 「最近の項目」アルバムから取ると、写真アプリに保存した順（古い順）で写真と動画が混ざって返る
+        if let recents = PHAssetCollection.fetchAssetCollections(
+            with: .smartAlbum, subtype: .smartAlbumUserLibrary, options: nil).firstObject {
+            fetch = PHAsset.fetchAssets(in: recents, options: options)
+        } else {
+            fetch = PHAsset.fetchAssets(with: options)
+        }
     }
 
     /// 並び順を変えて、最初から表示し直す（仕分け済みは出てこない）
