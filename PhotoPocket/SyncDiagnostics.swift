@@ -19,6 +19,8 @@ final class SyncDiagnostics: ObservableObject {
     @Published var containerMode = "-"
     @Published var containerError: String?
     @Published var events: [Event] = []
+    /// 起動してから、iCloudからの受信が1回終わったか（はじめの画面を出す前に待つ）
+    @Published var importFinishedOnce = false
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -36,6 +38,7 @@ final class SyncDiagnostics: ObservableObject {
             let e = Event(kind: kind, time: event.endDate ?? Date(), ok: event.succeeded,
                           error: event.error.map { SyncDiagnostics.describe($0) })
             Task { @MainActor in
+                if event.type == .import { SyncDiagnostics.shared.importFinishedOnce = true }
                 SyncDiagnostics.shared.events.insert(e, at: 0)
                 if SyncDiagnostics.shared.events.count > 8 { SyncDiagnostics.shared.events.removeLast() }
             }

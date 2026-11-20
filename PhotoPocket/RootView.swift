@@ -174,6 +174,13 @@ struct HomeView: View {
     @State private var showReorder = false
     @State private var showMigration = false
     @Environment(\.switchTab) private var switchTab
+    @ObservedObject private var sync = SyncDiagnostics.shared
+    @State private var waitedForSync = false
+
+    /// 同期ありのとき、入れ直した直後は保存済みのデータが届くまで「はじめの画面」を出さない
+    private var waitingForSync: Bool {
+        store.isUnlocked && !sync.importFinishedOnce && !waitedForSync
+    }
 
     private var uncategorized: [PhotoFolder] { allFolders.filter { $0.category == nil } }
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -192,7 +199,16 @@ struct HomeView: View {
                     onFolders: { switchTab(.folders) }
                 )
 
-                if categories.isEmpty && allFolders.isEmpty {
+                if categories.isEmpty && allFolders.isEmpty && waitingForSync {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("保存したデータを確認しています…")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 80)
+                } else if categories.isEmpty && allFolders.isEmpty {
                     welcomeView
                 } else {
                     VStack(alignment: .leading, spacing: 14) {
@@ -291,6 +307,14 @@ struct HomeView: View {
         .sheet(isPresented: $showReorder) { CategoryReorderSheet() }
         .sheet(isPresented: $showMigration) { MigrationView() }
         .task {
+            // データが届かないときでも、15秒たったら「はじめの画面」を出す
+            try? await Task.sleep(for: .seconds(15))
+            waitedForSync = true
+        }
+        .onChange(of: categories.count) { Dedupe.run(in: context) }
+        .onChange(of: allFolders.count) { Dedupe.run(in: context) }
+        .task {
+            Dedupe.run(in: context)
             // 以前のバージョンで取り込んだ写真（アプリ内にコピーがある）があれば、写真アプリに戻す案内を出す
             // （戻せなかった写真だけが残っている場合は、毎回は出さない）
             let legacy = PhotoAssets.legacyItems(in: context).count
