@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 enum CategoryEditTarget: Identifiable {
     case new
@@ -176,6 +177,7 @@ struct HomeView: View {
     @Environment(\.switchTab) private var switchTab
     @ObservedObject private var sync = SyncDiagnostics.shared
     @State private var waitedForSync = false
+    @State private var draggingCategory: PhotoCategory?
 
     /// 同期ありのとき、入れ直した直後は保存済みのデータが届くまで「はじめの画面」を出さない
     private var waitingForSync: Bool {
@@ -254,6 +256,14 @@ struct HomeView: View {
                                     Button { editingCategory = .edit(category) } label: { Label("分類を編集", systemImage: "pencil") }
                                     Button(role: .destructive) { categoryToDelete = category } label: { Label("分類を削除", systemImage: "trash") }
                                 }
+                                // 長押ししたまま動かすと、並べ替えられる
+                                .onDrag {
+                                    draggingCategory = category
+                                    return NSItemProvider(object: category.id.uuidString as NSString)
+                                }
+                                .onDrop(of: [.text], delegate: CategoryDropDelegate(
+                                    target: category, categories: categories,
+                                    dragging: $draggingCategory, context: context))
                             }
                             Button { editingCategory = .new } label: {
                                 AddCard(title: "分類を追加", minHeight: 176)
@@ -1045,5 +1055,33 @@ struct Triangle: Shape {
             p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
             p.closeSubpath()
         }
+    }
+}
+
+
+/// ホームで分類のカードを長押しして動かしたときの並べ替え
+struct CategoryDropDelegate: DropDelegate {
+    let target: PhotoCategory
+    let categories: [PhotoCategory]
+    @Binding var dragging: PhotoCategory?
+    let context: ModelContext
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging, dragging.id != target.id,
+              let from = categories.firstIndex(where: { $0.id == dragging.id }),
+              let to = categories.firstIndex(where: { $0.id == target.id }) else { return }
+        var list = categories
+        list.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        withAnimation(.snappy) {
+            for (i, c) in list.enumerated() where c.sortOrder != i { c.sortOrder = i }
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        try? context.save()
+        return true
     }
 }
