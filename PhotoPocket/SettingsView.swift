@@ -105,6 +105,7 @@ struct SettingsView: View {
                 }
 
                 if UnlockView.isTestBuild {
+                    DemoDataSection()
                     SyncDiagnosticsSection()
                 }
 
@@ -163,6 +164,33 @@ struct SettingsView: View {
             }
         } catch {
             iCloudText = "iCloudの状態を確認できません"
+        }
+    }
+}
+
+
+/// テスト版だけ：審査用の録画などで、いつものデータを見せずに使うための切り替え
+struct DemoDataSection: View {
+    @AppStorage(DemoData.key) private var demoMode = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Section {
+            Toggle("録画用の空のデータに切り替える", isOn: Binding(
+                get: { demoMode },
+                set: { on in
+                    // オフに戻すときは録画用のデータを消して、次はまた空から始める
+                    if !on { DemoData.erase() }
+                    dismiss()
+                    demoMode = on
+                }
+            ))
+        } header: {
+            Text("録画用（テスト版だけ）")
+        } footer: {
+            Text(demoMode
+                 ? "いまは録画用の空のデータで動いています。オフにすると、いつものデータに戻ります（録画用に作った分類やフォルダは消えます。写真アプリの写真は消えません）。"
+                 : "オンにすると、何も入っていない別のデータで動きます。いつものデータはそのまま残り、オフに戻すと元どおり表示されます。")
         }
     }
 }

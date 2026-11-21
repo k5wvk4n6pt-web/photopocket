@@ -7,6 +7,8 @@ struct PhotoPocketApp: App {
     @StateObject private var appLock = AppLock.shared
     @State private var container: ModelContainer = PhotoPocketApp.makeContainer(iCloud: Store.isUnlockedCached)
     @State private var containerIsCloud: Bool = Store.isUnlockedCached
+    /// テスト版だけ：録画用の空のデータで動かす（いつものデータには触れない）
+    @AppStorage(DemoData.key) private var demoMode = false
     @AppStorage("appearance") private var appearanceRaw = AppearanceMode.light.rawValue
     @AppStorage("appTheme") private var themeRaw = AppTheme.pink.rawValue
     @Environment(\.scenePhase) private var scenePhase
@@ -15,7 +17,7 @@ struct PhotoPocketApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .id("\(containerIsCloud)-\(themeRaw)")   // 保存先や色のテーマを切り替えたら画面を作り直す
+                .id("\(containerIsCloud)-\(themeRaw)-\(demoMode)")   // 保存先や色のテーマを切り替えたら画面を作り直す
                 // アプリのロック（フル版の機能）とアプリ一覧での目隠しは、別の窓（ウインドウ）で一番上に出す
                 // （写真を大きく見る画面などの全画面表示よりも上に出すため）
                 .onChange(of: lockOverlayKey) { _, _ in updateLockOverlay() }
@@ -28,11 +30,15 @@ struct PhotoPocketApp: App {
                     guard unlocked != containerIsCloud else { return }
                     container = PhotoPocketApp.makeContainer(iCloud: unlocked)
                     containerIsCloud = unlocked
-                    VideoSync.shared.configure(container: container, cloud: unlocked)
+                    VideoSync.shared.configure(container: container, cloud: unlocked && !DemoData.isOn)
+                }
+                .onChange(of: demoMode) { _, _ in
+                    container = PhotoPocketApp.makeContainer(iCloud: containerIsCloud)
+                    VideoSync.shared.configure(container: container, cloud: containerIsCloud && !DemoData.isOn)
                 }
                 .task {
                     updateLockOverlay()
-                    VideoSync.shared.configure(container: container, cloud: containerIsCloud)
+                    VideoSync.shared.configure(container: container, cloud: containerIsCloud && !DemoData.isOn)
                     // 起動したときにロック中なら、すぐ認証を出す
                     if store.isUnlocked && appLock.isEnabled && appLock.isLocked { await appLock.unlock() }
                 }
@@ -72,6 +78,10 @@ struct PhotoPocketApp: App {
     /// どちらも同じ保存ファイルを使うので、購入前に整理した写真もそのままiCloudへ送られる
     static func makeContainer(iCloud: Bool) -> ModelContainer {
         let schema = Schema([PhotoCategory.self, PhotoFolder.self, PhotoItem.self])
+        if DemoData.isOn, let demo = DemoData.makeContainer(schema: schema) {
+            Task { @MainActor in SyncDiagnostics.shared.containerMode = "録画用の空のデータ（同期しない）" }
+            return demo
+        }
         if iCloud {
             do {
                 let config = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)

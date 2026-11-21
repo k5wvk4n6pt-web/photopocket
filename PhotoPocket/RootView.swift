@@ -181,7 +181,7 @@ struct HomeView: View {
 
     /// 同期ありのとき、入れ直した直後は保存済みのデータが届くまで「はじめの画面」を出さない
     private var waitingForSync: Bool {
-        store.isUnlocked && !sync.importFinishedOnce && !waitedForSync
+        store.isUnlocked && !DemoData.isOn && !sync.importFinishedOnce && !waitedForSync
     }
 
     private var uncategorized: [PhotoFolder] { allFolders.filter { $0.category == nil } }
