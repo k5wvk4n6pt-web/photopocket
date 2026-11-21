@@ -4,9 +4,12 @@ import SwiftData
 /// 分類の作成・編集
 struct CategoryEditor: View {
     let target: CategoryEditTarget
+    /// 削除したあとに、呼び出し元の画面も閉じたいとき
+    var onDeleted: () -> Void = {}
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Query private var categories: [PhotoCategory]
+    @State private var confirmDelete = false
 
     @State private var name = ""
     @State private var symbol = CategorySymbol.all[0]
@@ -76,6 +79,25 @@ struct CategoryEditor: View {
                     }
                     .padding(.vertical, 6)
                 }
+                if case .edit = target {
+                    Section {
+                        Button(role: .destructive) { confirmDelete = true } label: {
+                            Label("この分類を削除", systemImage: "trash")
+                                .frame(maxWidth: .infinity)
+                        }
+                    } footer: {
+                        Text("中のフォルダと写真は消えずに「未分類」に移ります。")
+                    }
+                }
+            }
+            .confirmationDialog(
+                "分類「\(name)」を削除しますか？",
+                isPresented: $confirmDelete,
+                titleVisibility: .visible
+            ) {
+                Button("分類を削除", role: .destructive) { deleteCategory() }
+            } message: {
+                Text("中のフォルダと写真は消えずに「未分類」に移ります。")
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background.ignoresSafeArea())
@@ -99,6 +121,14 @@ struct CategoryEditor: View {
     }
 
     private var isNew: Bool { if case .new = target { return true } else { return false } }
+
+    private func deleteCategory() {
+        guard case .edit(let c) = target else { return }
+        dismiss()
+        context.delete(c)
+        try? context.save()
+        onDeleted()
+    }
 
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)

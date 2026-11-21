@@ -508,7 +508,7 @@ struct CategoryView: View {
             }
         }
         .sheet(item: $editingFolder) { FolderEditor(target: $0) }
-        .sheet(item: $editingCategory) { CategoryEditor(target: $0) }
+        .sheet(item: $editingCategory) { CategoryEditor(target: $0) { dismiss() } }
         .deleteFolderDialog($folderToDelete)
         .deleteCategoryDialog($categoryToDelete) { dismiss() }
         .sheet(isPresented: $showFolderReorder) { FolderReorderSheet(category: category) }
